@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 
 import argparse
+from datetime import datetime, timezone
 import sys
 
 
 from collections import defaultdict
 
+import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
+
 from garmin_fit_sdk import Decoder, Stream
 
 
@@ -17,6 +20,8 @@ COMMANDS = {
     "dump-steps": lambda args: dump_monitoring_steps(parse_files(_get_filenames(args))),
     # visualises steps history
     "steps-history": lambda args: plot_steps_history(parse_files(_get_filenames(args))),
+    # visualises heart rate(pulse) history
+    "pulse-history": lambda args: plot_pulse_history(parse_files(_get_filenames(args))),
 }
 
 
@@ -153,9 +158,52 @@ def plot_steps_history(messages):
     plt.show()
 
 
+def plot_pulse_history(messages):
+    dates = []
+    values = []
+    last_ts = None
+    last_ts_16 = None
+    for msg in messages:
+        if msg.group_name == "monitoring_mesgs":
+            # HACK: handling timestamp_16 is tricky
+            # this approach did not work:
+            # https://forums.garmin.com/developer/fit-sdk/f/discussion/311422/fit-timestamp_16-heart-rate---excel
+            # The current hack is to take previous known full timestamp
+            # and then track differences between subsequent timestamp_16
+            if msg.has_fields("timestamp"):
+                last_ts_16 = None
+                last_ts = int(msg.timestamp.timestamp())
+            if msg.has_fields("timestamp_16", "heart_rate"):
+                delta = 0
+                real_ts = last_ts
+                ts16 = msg["timestamp_16"]
+                if last_ts_16 is not None and last_ts_16 < ts16:
+                    delta = ts16 - last_ts_16
+                    real_ts += delta
+
+                local_ts = datetime.utcfromtimestamp(real_ts).replace(tzinfo=timezone.utc).astimezone()
+                print(local_ts.strftime("%Y-%m-%dT%H:%M:%S"), msg["heart_rate"])
+
+                dates.append(local_ts)
+                values.append(msg["heart_rate"])
+
+                last_ts_16 = ts16
+                last_ts = real_ts
+
+    plt.plot(dates, values, marker="o", color="red")
+    x = plt.gca()
+    x.xaxis.set_major_locator(mdates.HourLocator(interval=1))
+    x.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d %H:%M"))
+
+    plt.xlabel("Date")
+    plt.ylabel("Heart rate")
+    plt.title("Heart rate over time")
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
+
 def main(args):
-    # dump_messages(parse_files(_get_filenames(args)))
-    # for msg in parse_files(_get_filenames(args)):
     COMMANDS[args.command](args)
 
 
