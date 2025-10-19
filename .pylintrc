@@ -1,5 +1,8 @@
 [BASIC]
 good-names=i,j,k,x,y,z,ts,df,ds
 
+[FORMAT]
+max-line-length = 120
+
 [MESSAGES CONTROL]
-disable=missing-function-docstring,missing-module-docstring,missing-class-docstring
+disable=missing-function-docstring,missing-module-docstring,missing-class-docstring,fixme
