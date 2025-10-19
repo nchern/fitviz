@@ -43,7 +43,7 @@ class FITMsg:
         return self._group_name
 
     def has_fields(self, *args):
-        return all([fld in self._fields for fld in args])
+        return all(fld in self._fields for fld in args)
 
     @property
     def timestamp(self):

@@ -1,2 +1,5 @@
 [BASIC]
 good-names=i,j,k,x,y,z,ts,df,ds
+
+[MESSAGES CONTROL]
+disable=missing-function-docstring,missing-module-docstring,missing-class-docstring
