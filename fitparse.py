@@ -142,19 +142,20 @@ def plot_steps_history(messages):
     total = sum(values)
     avg = float(total) / days
 
-    plt.bar(dates, values, width=0.8)
+    plt.bar(dates, values, width=0.8, label="Steps")
+    plt.axhline(10000, color="red", linewidth=1.5, label="Daily goal")
+    plt.axhline(round(avg, 2), color="green", linewidth=1, label="Avg. steps / day")
     for x, y in zip(dates, values):
-        plt.text(x, y, str(y), ha='center', va='bottom')
+        plt.text(x, y, str(y), ha="center", va="bottom")
     plt.text(0.75, 0.95, f"Total: {total}",
-             transform=plt.gca().transAxes, va='top', fontsize=16)
+             transform=plt.gca().transAxes, va="top", fontsize=16)
     plt.text(0.75, 0.91, f"Days: {days}",
-             transform=plt.gca().transAxes, va='top', fontsize=16)
-    plt.text(0.75, 0.87, f"Avg. steps / day: {avg:.2f}",
-             transform=plt.gca().transAxes, va='top', fontsize=16)
+             transform=plt.gca().transAxes, va="top", fontsize=16)
     plt.xlabel('Date')
     plt.ylabel('Steps')
     plt.title('Steps history')
     plt.tight_layout()
+    plt.legend()
     plt.show()
 
 
