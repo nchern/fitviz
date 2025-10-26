@@ -22,8 +22,12 @@ assert_garmin_fs() {
 
 mount_garmin() {
     jmtpfs "$REMOTE_MOUNT_DIR" || _err_code=$?
-    if [ "$_err_code" = 134 ]; then
-        echo "$REMOTE_MOUNT_DIR: already mounted; continue"
+    if [ "$_err_code" -gt 0 ]; then
+        if [ "$_err_code" = 134 ]; then
+            echo "$REMOTE_MOUNT_DIR: already mounted; continue"
+            exit
+        fi
+        exit "$_err_code"
     fi
 }
 
