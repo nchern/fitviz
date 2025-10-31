@@ -149,14 +149,16 @@ def plot_steps_history(messages):
               "steps:", sum(r.steps for r in ds[k].values()))
 
     dates = ds.keys()
+
     values = [sum(r.steps for r in ds[k].values()) for k in ds]
+    distances = [round(sum(r.distance for r in ds[k].values())/1000, 2) for k in ds]
+    calories = [sum(r.active_calories for r in ds[k].values()) for k in ds]
+
     days = len(dates)
     total = sum(values)
     avg = float(total) / days
 
-    calories = [sum(r.active_calories for r in ds[k].values()) for k in ds]
-
-    fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=(10, 6))
+    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex=True, figsize=(10, 6))
 
     # top: bar plot
     ax1.bar(dates, values, width=0.8, label="Steps")
@@ -175,6 +177,13 @@ def plot_steps_history(messages):
     ax2.set_xlabel("Date")
     ax2.set_ylabel("Active calories")
     ax2.legend()
+
+    ax3.bar(dates, distances, color="tab:blue", label="Distance, km")
+    for x, y in zip(dates, distances):
+        ax3.text(x, y, str(y), ha="center", va="bottom")
+    ax3.set_xlabel("Date")
+    ax3.set_ylabel("Distance walked")
+    ax3.legend()
 
     fig.autofmt_xdate()
     fig.tight_layout()
