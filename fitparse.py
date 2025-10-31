@@ -5,13 +5,15 @@ from datetime import datetime, timezone
 import sys
 
 
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 
 from garmin_fit_sdk import Decoder, Stream
 
+
+DAILY_STEPS_GOAL = 10000
 
 COMMANDS = {
     # prints all records in full multi-line format
@@ -23,6 +25,9 @@ COMMANDS = {
     # visualises heart rate(pulse) history
     "pulse-history": lambda args: plot_pulse_history(parse_files(_get_filenames(args))),
 }
+
+
+ActivityRecord = namedtuple("ActivityRecord", ["active_calories", "distance", "steps"])
 
 
 class FITMsg:
@@ -130,32 +135,49 @@ def plot_steps_history(messages):
     for msg in messages:
         if msg.group_name == "monitoring_mesgs" and msg.has_fields("steps", "activity_type"):
             ts = msg.timestamp.date()
+            # active_calories, distance(meters)
+            # running -> (calories, distance, steps)
+            # walking -> (calories, distance, steps)
             # XXX: fragile! relies on messages chronological order in files:
             #   as message timestamps contain time data not only dates
-            ds[ts][msg["activity_type"]] = msg["steps"]
-    for k in ds:
-        print(k, ds[k], sum(ds[k].values()))
+            ds[ts][msg["activity_type"]] = ActivityRecord(
+                msg["active_calories"], msg["distance"], msg["steps"])
+    for k in sorted(ds.keys()):
+        print(k,
+              "active_calories:", sum(r.active_calories for r in ds[k].values()),
+              "distance:", round(sum(r.distance for r in ds[k].values()), 2),
+              "steps:", sum(r.steps for r in ds[k].values()))
 
     dates = ds.keys()
-    values = [sum(ds[k].values()) for k in ds]
+    values = [sum(r.steps for r in ds[k].values()) for k in ds]
     days = len(dates)
     total = sum(values)
     avg = float(total) / days
 
-    plt.bar(dates, values, width=0.8, label="Steps")
-    plt.axhline(10000, color="red", linewidth=1.5, label="Daily goal")
-    plt.axhline(round(avg, 2), color="green", linewidth=1, label="Avg. steps / day")
+    calories = [sum(r.active_calories for r in ds[k].values()) for k in ds]
+
+    fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=(10, 6))
+
+    # top: bar plot
+    ax1.bar(dates, values, width=0.8, label="Steps")
+    ax1.axhline(DAILY_STEPS_GOAL, color="red", linewidth=1.5, label="Daily goal")
+    ax1.axhline(round(avg, 2), color="green", linewidth=1, label="Avg. steps / day")
     for x, y in zip(dates, values):
-        plt.text(x, y, str(y), ha="center", va="bottom")
-    plt.text(0.75, 0.95, f"Total: {total}",
-             transform=plt.gca().transAxes, va="top", fontsize=16)
-    plt.text(0.75, 0.91, f"Days: {days}",
-             transform=plt.gca().transAxes, va="top", fontsize=16)
-    plt.xlabel('Date')
-    plt.ylabel('Steps')
-    plt.title('Steps history')
-    plt.tight_layout()
-    plt.legend()
+        ax1.text(x, y, str(y), ha="center", va="bottom")
+    ax1.set_ylabel("Steps")
+    ax1.set_title(f"Steps history over {days} day(s); total steps: {total}")
+    ax1.legend()
+
+    # bottom: separate plot sharing x-axis (simple line + markers)
+    ax2.bar(dates, calories, color="tab:red", label="Active calories (line)")
+    for x, y in zip(dates, calories):
+        ax2.text(x, y, str(y), ha="center", va="bottom")
+    ax2.set_xlabel("Date")
+    ax2.set_ylabel("Active calories")
+    ax2.legend()
+
+    fig.autofmt_xdate()
+    fig.tight_layout()
     plt.show()
 
 
