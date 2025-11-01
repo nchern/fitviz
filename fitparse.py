@@ -262,8 +262,6 @@ def plot_sleep_history(messages):
     plt.bar(dates, values, width=0.8, color="blue")
     for x, y in zip(dates, values):
         plt.text(x, y, str(y), ha="center", va="bottom")
-    # x.xaxis.set_major_locator(mdates.HourLocator(interval=1))
-    # x.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d %H:%M"))
 
     plt.xlabel("Date")
     plt.ylabel("Sleep duration, hours")
