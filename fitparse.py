@@ -15,18 +15,16 @@ from garmin_fit_sdk import Decoder, Stream
 
 DAILY_STEPS_GOAL = 10000
 
-COMMANDS = {
-    # prints all records in full multi-line format
-    "dump": lambda args: dump_messages(parse_files(_get_filenames(args))),
-    # prints alls steps from Monitoring
-    "dump-steps": lambda args: dump_monitoring_steps(parse_files(_get_filenames(args))),
-    # visualises steps history
-    "steps-history": lambda args: plot_steps_history(parse_files(_get_filenames(args))),
-    # visualises heart rate(pulse) history
-    "pulse-history": lambda args: plot_pulse_history(parse_files(_get_filenames(args))),
-    # visualises sleep history
-    "sleep-history": lambda args: plot_sleep_history(parse_files(_get_filenames(args))),
-}
+_cmd = namedtuple("CLICommand", ["cmd", "description"])
+
+COMMANDS = {}
+
+
+def cli_command(name, description=""):
+    def _dec(f):
+        COMMANDS[name] = _cmd(f, description)
+        return f
+    return _dec
 
 
 ActivityRecord = namedtuple("ActivityRecord", ["active_calories", "distance", "steps"])
@@ -119,22 +117,27 @@ def parse_files(names):
             yield msg
 
 
-def dump_messages(messages):
-    for msg in messages:
+# prints all records in full multi-line format
+@cli_command("dump")
+def dump_messages(args):
+    for msg in parse_files(_get_filenames(args)):
         for field_name, field_val in msg.fields.items():
             print(f"{msg.file_name}:{msg.group_name}:{field_name}: {field_val}")
         print(f"{msg.file_name}:{msg.group_name}:---End of msg---")
 
 
-def dump_monitoring_steps(messages):
-    for msg in messages:
+@cli_command("dump-steps", description="prints alls steps from Monitoring")
+def dump_monitoring_steps(args):
+    for msg in parse_files(_get_filenames(args)):
         if msg.group_name == "monitoring_mesgs" and msg.has_fields("steps", "activity_type"):
             print(msg.file_name, msg["timestamp"], msg["activity_type"], msg["steps"])
 
 
-def plot_steps_history(messages):
+# visualises steps history
+@cli_command("steps-history")
+def plot_steps_history(args):
     ds = defaultdict(dict)
-    for msg in messages:
+    for msg in parse_files(_get_filenames(args)):
         if msg.group_name == "monitoring_mesgs" and msg.has_fields("steps", "activity_type"):
             ts = msg.timestamp.date()
             # active_calories, distance(meters)
@@ -192,12 +195,13 @@ def plot_steps_history(messages):
     plt.show()
 
 
-def plot_pulse_history(messages):
+@cli_command("pulse-history", description="visualises heart rate(pulse) history")
+def plot_pulse_history(args):
     dates = []
     values = []
     last_ts = None
     last_ts_16 = None
-    for msg in messages:
+    for msg in parse_files(_get_filenames(args)):
         if msg.group_name == "monitoring_mesgs":
             # HACK: handling timestamp_16 is tricky
             # this approach did not work:
@@ -237,11 +241,12 @@ def plot_pulse_history(messages):
     plt.show()
 
 
-def plot_sleep_history(messages):
+@cli_command("sleep-history", description="visualises sleep history")
+def plot_sleep_history(args):
+    durations = []
     started_at = None
     finished_at = None
-    durations = []
-    for msg in messages:
+    for msg in parse_files(_get_filenames(args)):
         if msg.group_name == "event_mesgs" and msg.has_fields("event_type") and msg["event_type"] == "start":
             if started_at is not None and finished_at is not None:
                 print(finished_at, finished_at - started_at)
@@ -250,8 +255,6 @@ def plot_sleep_history(messages):
             print(msg.timestamp, "start")
         elif msg.group_name == "sleep_level_mesgs":
             print(msg.timestamp, "sleep")
-            # if not msg.has_fields("timestamp"):
-            #     print(msg.file_name)
             finished_at = msg.timestamp
     if started_at is not None and finished_at is not None:
         print(finished_at, finished_at - started_at)
@@ -273,7 +276,7 @@ def plot_sleep_history(messages):
 
 
 def main(args):
-    COMMANDS[args.command](args)
+    COMMANDS[args.command].cmd(args)
 
 
 if __name__ == "__main__":
