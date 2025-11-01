@@ -227,6 +227,8 @@ def plot_pulse_history(args):
 
                 last_ts_16 = ts16
                 last_ts = real_ts
+    if not values:
+        return
 
     plt.plot(dates, values, marker="o", color="red")
     x = plt.gca()
@@ -260,6 +262,8 @@ def plot_sleep_history(args):
         print(finished_at, finished_at - started_at)
         durations.append((finished_at, finished_at - started_at))
 
+    if not durations:
+        return
     dates = [d[0].date() for d in durations]
     values = [round(d[1].seconds / 3600., 2) for d in durations]
     plt.bar(dates, values, width=0.8, color="blue")
