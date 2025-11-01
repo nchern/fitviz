@@ -76,6 +76,8 @@ def _parse_args():
     parser.add_argument("-c", "--command", required=False, default="dump",
                         choices=list(COMMANDS),
                         help="command to execute")
+    parser.add_argument("-p", "--plot", action='store_true', required=False,
+                        help="Plot data if sub-command supports it.")
     parser.add_argument("file_names", nargs="+")
     return parser.parse_args()
 
@@ -171,6 +173,11 @@ def plot_steps_history(args):
               "distance:", round(sum(r.distance for r in ds[k].values()), 2),
               "steps:", sum(r.steps for r in ds[k].values()))
 
+    if not ds:
+        return
+    if not args.plot:
+        return
+
     dates = ds.keys()
 
     values = [sum(r.steps for r in ds[k].values()) for k in ds]
@@ -239,6 +246,8 @@ def plot_pulse_history(args):
                 last_ts = real_ts
     if not values:
         return
+    if not args.plot:
+        return
 
     plt.plot(dates, values, marker="o", color="red")
     x = plt.gca()
@@ -276,6 +285,9 @@ def plot_sleep_history(args):
 
     if not durations:
         return
+    if not args.plot:
+        return
+
     dates = [d[0].date() for d in durations]
     values = [round(d[1].seconds / 3600., 2) for d in durations]
 
