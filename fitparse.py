@@ -24,6 +24,8 @@ COMMANDS = {
     "steps-history": lambda args: plot_steps_history(parse_files(_get_filenames(args))),
     # visualises heart rate(pulse) history
     "pulse-history": lambda args: plot_pulse_history(parse_files(_get_filenames(args))),
+    # visualises sleep history
+    "sleep-history": lambda args: plot_sleep_history(parse_files(_get_filenames(args))),
 }
 
 
@@ -232,6 +234,43 @@ def plot_pulse_history(messages):
     plt.title("Heart rate over time")
     plt.grid(True)
     plt.tight_layout()
+    plt.show()
+
+
+def plot_sleep_history(messages):
+    started_at = None
+    finished_at = None
+    durations = []
+    for msg in messages:
+        if msg.group_name == "event_mesgs" and msg.has_fields("event_type") and msg["event_type"] == "start":
+            if started_at is not None and finished_at is not None:
+                print(finished_at, finished_at - started_at)
+                durations.append((finished_at, finished_at - started_at))
+            started_at = msg.timestamp
+            print(msg.timestamp, "start")
+        elif msg.group_name == "sleep_level_mesgs":
+            print(msg.timestamp, "sleep")
+            # if not msg.has_fields("timestamp"):
+            #     print(msg.file_name)
+            finished_at = msg.timestamp
+    if started_at is not None and finished_at is not None:
+        print(finished_at, finished_at - started_at)
+        durations.append((finished_at, finished_at - started_at))
+
+    dates = [d[0].date() for d in durations]
+    values = [round(d[1].seconds / 3600., 2) for d in durations]
+    plt.bar(dates, values, width=0.8, color="blue")
+    for x, y in zip(dates, values):
+        plt.text(x, y, str(y), ha="center", va="bottom")
+    # x.xaxis.set_major_locator(mdates.HourLocator(interval=1))
+    # x.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d %H:%M"))
+
+    plt.xlabel("Date")
+    plt.ylabel("Sleep duration, hours")
+    plt.title(f"Sleep duration over time from {dates[0]} to {dates[-1]}")
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
     plt.show()
 
 
