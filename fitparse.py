@@ -57,7 +57,7 @@ class FITMsg:
 
     @property
     def timestamp(self):
-        return self._fields["timestamp"]
+        return self._fields.get("timestamp")
 
 
 def _get_filenames(args):
@@ -75,7 +75,9 @@ def _parse_args():
                         help="Batch mode - will read file names from stdin if set")
     parser.add_argument("-c", "--command", required=False, default="dump",
                         choices=list(COMMANDS),
-                        help="command to execute")
+                        help="Command to execute")
+    parser.add_argument("-f", "--fields", type=str, required=False, default="",
+                        help="Fields to dump in csv mode")
     parser.add_argument("-p", "--plot", action='store_true', required=False,
                         help="Plot data if sub-command supports it.")
     parser.add_argument("file_names", nargs="+")
@@ -119,8 +121,18 @@ def parse_files(names):
             yield msg
 
 
-# prints all records in full multi-line format
-@cli_command("dump")
+@cli_command("csv", description="prints records in csv format")
+def dump_csv(args):
+    for msg in parse_files(_get_filenames(args)):
+        fields = []
+        if args.fields:
+            fields = sorted(args.fields.split(","))
+        vals = [msg.file_name, msg.group_name, msg.timestamp or "?"]
+        vals.extend(msg.fields.get(f.lower(), "?") for f in fields)
+        print(",".join([str(v) for v in vals]))
+
+
+@cli_command("dump", description="prints all records in full multi-line format")
 def dump_messages(args):
     for msg in parse_files(_get_filenames(args)):
         for field_name, field_val in msg.fields.items():
