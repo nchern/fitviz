@@ -313,7 +313,10 @@ def plot_sleep_history(args):
 
 
 def main(args):
-    COMMANDS[args.command].cmd(args)
+    try:
+        COMMANDS[args.command].cmd(args)
+    except (KeyboardInterrupt, BrokenPipeError):
+        pass
 
 
 if __name__ == "__main__":
