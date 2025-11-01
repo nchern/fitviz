@@ -133,8 +133,26 @@ def dump_monitoring_steps(args):
             print(msg.file_name, msg["timestamp"], msg["activity_type"], msg["steps"])
 
 
-# visualises steps history
-@cli_command("steps-history")
+def bar_plot(p, dates, values,
+             title="", color=None, plot_label="", x_label="", y_label=""):
+    p.bar(dates, values, width=0.8, label=plot_label, color=color)
+    for x, y in zip(dates, values):
+        p.text(x, y, str(y), ha="center", va="bottom")
+    try:
+        p.set_xlabel(x_label)
+    except AttributeError:
+        p.xlabel(x_label)
+    try:
+        p.set_ylabel(y_label)
+    except AttributeError:
+        p.ylabel(y_label)
+    try:
+        p.set_title(title)
+    except AttributeError:
+        p.title(title)
+
+
+@cli_command("steps-history", description="visualises steps history")
 def plot_steps_history(args):
     ds = defaultdict(dict)
     for msg in parse_files(_get_filenames(args)):
@@ -165,29 +183,21 @@ def plot_steps_history(args):
 
     fig, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex=True, figsize=(10, 6))
 
-    # top: bar plot
-    ax1.bar(dates, values, width=0.8, label="Steps")
+    # steps plot
+    bar_plot(ax1, dates, values, plot_label="Steps", x_label="Date", y_label="Steps",
+             title=f"Steps history over {days} day(s); total steps: {total}")
     ax1.axhline(DAILY_STEPS_GOAL, color="red", linewidth=1.5, label="Daily goal")
     ax1.axhline(round(avg, 2), color="green", linewidth=1, label="Avg. steps / day")
-    for x, y in zip(dates, values):
-        ax1.text(x, y, str(y), ha="center", va="bottom")
-    ax1.set_ylabel("Steps")
-    ax1.set_title(f"Steps history over {days} day(s); total steps: {total}")
     ax1.legend()
 
-    # bottom: separate plot sharing x-axis (simple line + markers)
-    ax2.bar(dates, calories, color="tab:red", label="Active calories (line)")
-    for x, y in zip(dates, calories):
-        ax2.text(x, y, str(y), ha="center", va="bottom")
-    ax2.set_xlabel("Date")
-    ax2.set_ylabel("Active calories")
+    # calories plot
+    bar_plot(ax2, dates, calories, color="tab:red", plot_label="Active calories (line)",
+             x_label="Date", y_label="Active calories")
     ax2.legend()
 
-    ax3.bar(dates, distances, color="tab:blue", label="Distance, km")
-    for x, y in zip(dates, distances):
-        ax3.text(x, y, str(y), ha="center", va="bottom")
-    ax3.set_xlabel("Date")
-    ax3.set_ylabel("Distance walked")
+    # distance plot
+    bar_plot(ax3, dates, distances, color="tab:blue", plot_label="Distance, km",
+             x_label="Date", y_label="Distance walked")
     ax3.legend()
 
     fig.autofmt_xdate()
@@ -238,6 +248,7 @@ def plot_pulse_history(args):
     plt.xlabel("Date")
     plt.ylabel("Heart rate")
     plt.title("Heart rate over time")
+
     plt.grid(True)
     plt.tight_layout()
     plt.show()
@@ -258,6 +269,7 @@ def plot_sleep_history(args):
         elif msg.group_name == "sleep_level_mesgs":
             print(msg.timestamp, "sleep")
             finished_at = msg.timestamp
+
     if started_at is not None and finished_at is not None:
         print(finished_at, finished_at - started_at)
         durations.append((finished_at, finished_at - started_at))
@@ -266,16 +278,13 @@ def plot_sleep_history(args):
         return
     dates = [d[0].date() for d in durations]
     values = [round(d[1].seconds / 3600., 2) for d in durations]
-    plt.bar(dates, values, width=0.8, color="blue")
-    for x, y in zip(dates, values):
-        plt.text(x, y, str(y), ha="center", va="bottom")
 
-    plt.xlabel("Date")
-    plt.ylabel("Sleep duration, hours")
-    plt.title(f"Sleep duration over time from {dates[0]} to {dates[-1]}")
+    bar_plot(plt, dates, values,
+             color="blue", x_label="Date", y_label="Sleep duration, hours",
+             title=f"Sleep duration over time from {dates[0]} to {dates[-1]}")
+
     plt.grid(True)
     plt.tight_layout()
-    plt.show()
     plt.show()
 
 
