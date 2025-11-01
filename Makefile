@@ -16,4 +16,4 @@ sync:
 steps:
 	# <Garmin>/Monitor/*: Forerunner saves steps state in the files there
 	# Normally once a day, however there are intermediate states
-	@./fitparse.py -c steps-history $(DATA_DIR)/Monitor/*
+	@./fitparse.py -c steps -p $(DATA_DIR)/Monitor/*

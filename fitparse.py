@@ -166,7 +166,7 @@ def bar_plot(p, dates, values,
         p.title(title)
 
 
-@cli_command("steps-history", description="visualises steps history")
+@cli_command("steps", description="visualises steps history")
 def plot_steps_history(args):
     ds = defaultdict(dict)
     for msg in parse_files(_get_filenames(args)):
@@ -224,7 +224,7 @@ def plot_steps_history(args):
     plt.show()
 
 
-@cli_command("pulse-history", description="visualises heart rate(pulse) history")
+@cli_command("pulse", description="visualises heart rate(pulse) history")
 def plot_pulse_history(args):
     dates = []
     values = []
@@ -275,7 +275,7 @@ def plot_pulse_history(args):
     plt.show()
 
 
-@cli_command("sleep-history", description="visualises sleep history")
+@cli_command("sleep", description="visualises sleep history")
 def plot_sleep_history(args):
     durations = []
     started_at = None
