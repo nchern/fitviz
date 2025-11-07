@@ -128,17 +128,17 @@ def parse_file(file_name):
         stream.close()
 
 
-def parse_files(names, since):
-    for file_path in names:
+def parse_files(args):
+    for file_path in _get_filenames(args):
         for msg in parse_file(file_path):
-            if not msg.timestamp_in(since):
+            if not msg.timestamp_in(args.since):
                 continue
             yield msg
 
 
 @cli_command("csv", description="prints records in csv format")
 def dump_csv(args):
-    for msg in parse_files(_get_filenames(args), args.since):
+    for msg in parse_files(args):
         fields = []
         if args.fields:
             fields = sorted(args.fields.split(","))
@@ -149,7 +149,7 @@ def dump_csv(args):
 
 @cli_command("dump", description="prints all records in full multi-line format")
 def dump_messages(args):
-    for msg in parse_files(_get_filenames(args), args.since):
+    for msg in parse_files(args):
         for field_name, field_val in msg.fields.items():
             print(f"{msg.file_name}:{msg.group_name}:{field_name}: {field_val}")
         print(f"{msg.file_name}:{msg.group_name}:---End of msg---")
@@ -157,7 +157,7 @@ def dump_messages(args):
 
 @cli_command("dump-steps", description="prints alls steps from Monitoring")
 def dump_monitoring_steps(args):
-    for msg in parse_files(_get_filenames(args), args.since):
+    for msg in parse_files(args):
         if msg.group_name == "monitoring_mesgs" and msg.has_fields("steps", "activity_type"):
             print(msg.file_name, msg["timestamp"], msg["activity_type"], msg["steps"])
 
@@ -184,7 +184,7 @@ def bar_plot(p, dates, values,
 @cli_command("steps", description="visualises steps history")
 def plot_steps_history(args):
     ds = defaultdict(dict)
-    for msg in parse_files(_get_filenames(args), args.since):
+    for msg in parse_files(args):
         if msg.group_name == "monitoring_mesgs" and msg.has_fields("steps", "activity_type"):
             ts = msg.timestamp.date()
             # active_calories, distance(meters)
@@ -245,7 +245,7 @@ def plot_pulse_history(args):
     values = []
     last_ts = None
     last_ts_16 = None
-    for msg in parse_files(_get_filenames(args), args.since):
+    for msg in parse_files(args):
         if msg.group_name == "monitoring_mesgs":
             # HACK: handling timestamp_16 is tricky
             # this approach did not work:
@@ -295,7 +295,7 @@ def plot_sleep_history(args):
     durations = []
     started_at = None
     finished_at = None
-    for msg in parse_files(_get_filenames(args), args.since):
+    for msg in parse_files(args):
         if msg.group_name == "event_mesgs" and msg.has_fields("event_type") and msg["event_type"] == "start":
             if started_at is not None and finished_at is not None:
                 print(finished_at, finished_at - started_at)
