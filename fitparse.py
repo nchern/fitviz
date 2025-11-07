@@ -104,15 +104,6 @@ def _read_from(file_name, decoder):
     return messages
 
 
-def _parse_messages(file_name, messages):
-    for name, group in messages.items():
-        for msg in group:
-            for field_name, field_value in msg.items():
-                print(f"{file_name}:{name}:{field_name}: {field_value}")
-            print(f"{file_name}:{name}:---End of msg---")
-        print()
-
-
 def parse_file(file_name):
     stream = Stream.from_file(file_name)
     decoder = Decoder(stream)
