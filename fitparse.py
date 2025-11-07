@@ -59,6 +59,16 @@ class FITMsg:
     def timestamp(self):
         return self._fields.get("timestamp")
 
+    def timestamp_in(self, since=None, until=None):
+        if not self.timestamp:
+            return True
+        if since is not None and self.timestamp.date() < since.date():
+            return False
+        if until is not None and self.timestamp.date() > until.date():
+            return False
+
+        return True
+
 
 def _get_filenames(args):
     if args.batch:
@@ -121,8 +131,7 @@ def parse_file(file_name):
 def parse_files(names, since):
     for file_path in names:
         for msg in parse_file(file_path):
-            should_filter_since = msg.timestamp and since is not None
-            if should_filter_since and msg.timestamp.date() < since.date():
+            if not msg.timestamp_in(since):
                 continue
             yield msg
 
