@@ -69,6 +69,15 @@ def _get_filenames(args):
             yield name
 
 
+def _parse_time_interval(s):
+    try:
+        s = s.strip()
+        val = datetime.strptime(s, "%Y-%m-%d")
+        return val.replace(tzinfo=datetime.now().astimezone().tzinfo)
+    except Exception as ex:
+        raise argparse.ArgumentTypeError(f"Bad time interval: {ex}")
+
+
 def _parse_args():
     parser = argparse.ArgumentParser(description="A program to parse FIT files")
     parser.add_argument("-b", "--batch", action='store_true', required=False,
@@ -78,6 +87,9 @@ def _parse_args():
                         help="Command to execute")
     parser.add_argument("-f", "--fields", type=str, required=False, default="",
                         help="Fields to dump in csv mode")
+    parser.add_argument("-s", "--since", default=None, required=False,
+                        type=_parse_time_interval,
+                        help="show timeseries data on or newer than the specified date")
     parser.add_argument("-p", "--plot", action='store_true', required=False,
                         help="Plot data if sub-command supports it.")
     parser.add_argument("file_names", nargs="+")
@@ -115,15 +127,18 @@ def parse_file(file_name):
         stream.close()
 
 
-def parse_files(names):
+def parse_files(names, since):
     for file_path in names:
         for msg in parse_file(file_path):
+            should_filter_since = msg.timestamp and since is not None
+            if should_filter_since and msg.timestamp.date() < since.date():
+                continue
             yield msg
 
 
 @cli_command("csv", description="prints records in csv format")
 def dump_csv(args):
-    for msg in parse_files(_get_filenames(args)):
+    for msg in parse_files(_get_filenames(args), args.since):
         fields = []
         if args.fields:
             fields = sorted(args.fields.split(","))
@@ -134,7 +149,7 @@ def dump_csv(args):
 
 @cli_command("dump", description="prints all records in full multi-line format")
 def dump_messages(args):
-    for msg in parse_files(_get_filenames(args)):
+    for msg in parse_files(_get_filenames(args), args.since):
         for field_name, field_val in msg.fields.items():
             print(f"{msg.file_name}:{msg.group_name}:{field_name}: {field_val}")
         print(f"{msg.file_name}:{msg.group_name}:---End of msg---")
@@ -142,7 +157,7 @@ def dump_messages(args):
 
 @cli_command("dump-steps", description="prints alls steps from Monitoring")
 def dump_monitoring_steps(args):
-    for msg in parse_files(_get_filenames(args)):
+    for msg in parse_files(_get_filenames(args), args.since):
         if msg.group_name == "monitoring_mesgs" and msg.has_fields("steps", "activity_type"):
             print(msg.file_name, msg["timestamp"], msg["activity_type"], msg["steps"])
 
@@ -169,7 +184,7 @@ def bar_plot(p, dates, values,
 @cli_command("steps", description="visualises steps history")
 def plot_steps_history(args):
     ds = defaultdict(dict)
-    for msg in parse_files(_get_filenames(args)):
+    for msg in parse_files(_get_filenames(args), args.since):
         if msg.group_name == "monitoring_mesgs" and msg.has_fields("steps", "activity_type"):
             ts = msg.timestamp.date()
             # active_calories, distance(meters)
@@ -230,7 +245,7 @@ def plot_pulse_history(args):
     values = []
     last_ts = None
     last_ts_16 = None
-    for msg in parse_files(_get_filenames(args)):
+    for msg in parse_files(_get_filenames(args), args.since):
         if msg.group_name == "monitoring_mesgs":
             # HACK: handling timestamp_16 is tricky
             # this approach did not work:
@@ -280,7 +295,7 @@ def plot_sleep_history(args):
     durations = []
     started_at = None
     finished_at = None
-    for msg in parse_files(_get_filenames(args)):
+    for msg in parse_files(_get_filenames(args), args.since):
         if msg.group_name == "event_mesgs" and msg.has_fields("event_type") and msg["event_type"] == "start":
             if started_at is not None and finished_at is not None:
                 print(finished_at, finished_at - started_at)

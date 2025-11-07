@@ -1,5 +1,5 @@
 [BASIC]
-good-names=i,j,k,x,y,z,ts,df,ds,f,p
+good-names=i,j,k,x,y,z,ts,df,ds,f,p,s,ex
 
 [FORMAT]
 max-line-length = 120
