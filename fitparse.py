@@ -102,6 +102,9 @@ def _parse_args():
                         help="show timeseries data on or newer than the specified date")
     parser.add_argument("-p", "--plot", action='store_true', required=False,
                         help="Plot data if sub-command supports it.")
+    parser.add_argument("-u", "--until", default=None, required=False,
+                        type=_parse_time_interval,
+                        help="show timeseries data on or older than the specified date")
     parser.add_argument("file_names", nargs="+")
     return parser.parse_args()
 
@@ -131,7 +134,7 @@ def parse_file(file_name):
 def parse_files(args):
     for file_path in _get_filenames(args):
         for msg in parse_file(file_path):
-            if not msg.timestamp_in(args.since):
+            if not msg.timestamp_in(args.since, args.until):
                 continue
             yield msg
 
@@ -231,7 +234,9 @@ def plot_steps_history(args):
 
     # distance plot
     bar_plot(ax3, dates, distances, color="tab:blue", plot_label="Distance, km",
-             x_label="Date", y_label="Distance walked")
+             x_label="Date", y_label="Kilometers")
+    ax3.xaxis.set_major_locator(mdates.DayLocator(interval=1))
+    ax3.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
     ax3.legend()
 
     fig.autofmt_xdate()
@@ -245,6 +250,7 @@ def plot_pulse_history(args):
     values = []
     last_ts = None
     last_ts_16 = None
+    # BUG: since / until filters do not work with this approach
     for msg in parse_files(args):
         if msg.group_name == "monitoring_mesgs":
             # HACK: handling timestamp_16 is tricky
@@ -276,10 +282,11 @@ def plot_pulse_history(args):
     if not args.plot:
         return
 
-    plt.plot(dates, values, marker="o", color="red")
+    plt.plot(dates, values, marker="o", color="red", label="Pulse")
     x = plt.gca()
     x.xaxis.set_major_locator(mdates.HourLocator(interval=1))
     x.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d %H:%M"))
+    x.legend()
 
     plt.xlabel("Date")
     plt.ylabel("Heart rate")
@@ -319,8 +326,14 @@ def plot_sleep_history(args):
     values = [round(d[1].seconds / 3600., 2) for d in durations]
 
     bar_plot(plt, dates, values,
-             color="blue", x_label="Date", y_label="Sleep duration, hours",
+             plot_label="Sleep duration",
+             color="blue", x_label="Date", y_label="Hours",
              title=f"Sleep duration over time from {dates[0]} to {dates[-1]}")
+
+    ax = plt.gca()
+    ax.xaxis.set_major_locator(mdates.DayLocator(interval=1))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
+    ax.legend()
 
     plt.grid(True)
     plt.tight_layout()
