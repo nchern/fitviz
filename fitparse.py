@@ -250,7 +250,12 @@ def plot_pulse_history(args):
     values = []
     last_ts = None
     last_ts_16 = None
-    # BUG: since / until filters do not work with this approach
+
+    # HACK: since / until filters do not work in parse_files
+    #   as we manually calculate timestamps below. Hence apply since / until filters
+    #   manually here to the calculated timestamps.
+    since, until = args.since, args.until
+    args.since, args.until = None, None
     for msg in parse_files(args):
         if msg.group_name == "monitoring_mesgs":
             # HACK: handling timestamp_16 is tricky
@@ -269,14 +274,21 @@ def plot_pulse_history(args):
                     delta = ts16 - last_ts_16
                     real_ts += delta
 
+                last_ts_16 = ts16
+                last_ts = real_ts
+
                 local_ts = datetime.utcfromtimestamp(real_ts).replace(tzinfo=timezone.utc).astimezone()
+
+                if since is not None and local_ts.date() < since.date():
+                    continue
+                if until is not None and local_ts.date() > until.date():
+                    continue
+
                 print(local_ts.strftime("%Y-%m-%dT%H:%M:%S"), msg["heart_rate"])
 
                 dates.append(local_ts)
                 values.append(msg["heart_rate"])
 
-                last_ts_16 = ts16
-                last_ts = real_ts
     if not values:
         return
     if not args.plot:
@@ -286,6 +298,7 @@ def plot_pulse_history(args):
     x = plt.gca()
     x.xaxis.set_major_locator(mdates.HourLocator(interval=1))
     x.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d %H:%M"))
+    x.tick_params(axis='x', rotation=45)
     x.legend()
 
     plt.xlabel("Date")
