@@ -318,22 +318,24 @@ def plot_pulse_history(args):
 @cli_command("sleep", description="visualises sleep history")
 def plot_sleep_history(args):
     durations = []
+
+    def _add_duration(started_at, finished_at):
+        if started_at is not None and finished_at is not None:
+            print(finished_at, finished_at - started_at)
+            durations.append((finished_at, finished_at - started_at))
+
     started_at = None
     finished_at = None
     for msg in parse_files(args):
         if msg.group_name == "event_mesgs" and msg.has_fields("event_type") and msg["event_type"] == "start":
-            if started_at is not None and finished_at is not None:
-                print(finished_at, finished_at - started_at)
-                durations.append((finished_at, finished_at - started_at))
+            _add_duration(started_at, finished_at)
             started_at = msg.timestamp
-            print(msg.timestamp, "start")
+            # print(msg.timestamp, "start")
         elif msg.group_name == "sleep_level_mesgs":
-            print(msg.timestamp, "sleep")
+            # print(msg.timestamp, "sleep")
             finished_at = msg.timestamp
 
-    if started_at is not None and finished_at is not None:
-        print(finished_at, finished_at - started_at)
-        durations.append((finished_at, finished_at - started_at))
+    _add_duration(started_at, finished_at)  # add the last remaining point if any
 
     if not durations:
         return
