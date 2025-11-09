@@ -162,6 +162,37 @@ def bar_plot(p, dates, values,
         p.title(title)
 
 
+def plot_hourly_data_with_lines(
+    dates,
+    values,
+    label="",
+    title="",
+    color="red",
+    x_label="Time",
+    y_label="",
+    y_locator=None,
+):
+    if not dates or not values:
+        return
+
+    plt.plot(dates, values, marker="o", color=color, label=label)
+    ax = plt.gca()
+    ax.xaxis.set_major_locator(mdates.HourLocator(interval=1))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d %H:%M"))
+    if y_locator is not None:
+        ax.yaxis.set_major_locator(y_locator)
+    ax.tick_params(axis='x', rotation=45)
+    ax.legend()
+
+    plt.xlabel(x_label)
+    plt.ylabel(y_label)
+    plt.title(title)
+
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
+
 @cli_command("csv", description="prints records in csv format")
 def dump_csv(args):
     for msg in parse_files(args):
@@ -294,25 +325,12 @@ def plot_pulse_history(args):
                 dates.append(local_ts)
                 values.append(msg["heart_rate"])
 
-    if not values:
-        return
     if not args.plot:
         return
-
-    plt.plot(dates, values, marker="o", color="red", label="Pulse")
-    x = plt.gca()
-    x.xaxis.set_major_locator(mdates.HourLocator(interval=1))
-    x.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d %H:%M"))
-    x.tick_params(axis='x', rotation=45)
-    x.legend()
-
-    plt.xlabel("Time")
-    plt.ylabel("Heart rate")
-    plt.title("Heart rate over time")
-
-    plt.grid(True)
-    plt.tight_layout()
-    plt.show()
+    plot_hourly_data_with_lines(dates, values,
+                                label="Pulse",
+                                title="Heart rate over time",
+                                y_label="Heart rate")
 
 
 @cli_command("sleep", description="visualises sleep history")
@@ -374,26 +392,13 @@ def plot_stress_history(args):
             values.append(val)
             print(dt_val.strftime(DATETIME_FORMAT), val)
 
-    if not values:
-        return
     if not args.plot:
         return
-
-    plt.plot(dates, values, marker="o", color="red", label="Stress level")
-    x = plt.gca()
-    x.xaxis.set_major_locator(mdates.HourLocator(interval=1))
-    x.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d %H:%M"))
-    x.yaxis.set_major_locator(mticker.MultipleLocator(10))
-    x.tick_params(axis="x", rotation=45)
-    x.legend()
-
-    plt.xlabel("Time")
-    plt.ylabel("Stress level [0-100]")
-    plt.title("Stress level over time")
-
-    plt.grid(True)
-    plt.tight_layout()
-    plt.show()
+    plot_hourly_data_with_lines(dates, values,
+                                label="Stress level",
+                                title="Stress level over time",
+                                y_label="Stress level [0-100]",
+                                y_locator=mticker.MultipleLocator(10))
 
 
 def main(args):
