@@ -9,11 +9,13 @@ from collections import defaultdict, namedtuple
 
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
 
 from garmin_fit_sdk import Decoder, Stream
 
 
 DAILY_STEPS_GOAL = 10000
+DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 
 _cmd = namedtuple("CLICommand", ["cmd", "description"])
 
@@ -57,6 +59,8 @@ class FITMsg:
 
     @property
     def timestamp(self):
+        if self.group_name == "stress_level_mesgs":
+            return self._fields.get("stress_level_time")
         return self._fields.get("timestamp")
 
     def timestamp_in(self, since=None, until=None):
@@ -105,7 +109,7 @@ def _parse_args():
     parser.add_argument("-u", "--until", default=None, required=False,
                         type=_parse_time_interval,
                         help="show timeseries data on or older than the specified date")
-    parser.add_argument("file_names", nargs="+")
+    parser.add_argument("file_names", nargs="*")
     return parser.parse_args()
 
 
@@ -139,6 +143,25 @@ def parse_files(args):
             yield msg
 
 
+def bar_plot(p, dates, values,
+             title="", color=None, plot_label="", x_label="", y_label=""):
+    p.bar(dates, values, width=0.8, label=plot_label, color=color)
+    for x, y in zip(dates, values):
+        p.text(x, y, str(y), ha="center", va="bottom")
+    try:
+        p.set_xlabel(x_label)
+    except AttributeError:
+        p.xlabel(x_label)
+    try:
+        p.set_ylabel(y_label)
+    except AttributeError:
+        p.ylabel(y_label)
+    try:
+        p.set_title(title)
+    except AttributeError:
+        p.title(title)
+
+
 @cli_command("csv", description="prints records in csv format")
 def dump_csv(args):
     for msg in parse_files(args):
@@ -165,27 +188,9 @@ def dump_monitoring_steps(args):
             print(msg.file_name, msg["timestamp"], msg["activity_type"], msg["steps"])
 
 
-def bar_plot(p, dates, values,
-             title="", color=None, plot_label="", x_label="", y_label=""):
-    p.bar(dates, values, width=0.8, label=plot_label, color=color)
-    for x, y in zip(dates, values):
-        p.text(x, y, str(y), ha="center", va="bottom")
-    try:
-        p.set_xlabel(x_label)
-    except AttributeError:
-        p.xlabel(x_label)
-    try:
-        p.set_ylabel(y_label)
-    except AttributeError:
-        p.ylabel(y_label)
-    try:
-        p.set_title(title)
-    except AttributeError:
-        p.title(title)
-
-
 @cli_command("steps", description="visualises steps history")
 def plot_steps_history(args):
+    # pylint: disable=too-many-locals
     ds = defaultdict(dict)
     for msg in parse_files(args):
         if msg.group_name == "monitoring_mesgs" and msg.has_fields("steps", "activity_type"):
@@ -277,6 +282,7 @@ def plot_pulse_history(args):
                 last_ts_16 = ts16
                 last_ts = real_ts
 
+                # convert real_ts to the instant expressed in the local timezone.
                 local_ts = datetime.utcfromtimestamp(real_ts).replace(tzinfo=timezone.utc).astimezone()
 
                 if since is not None and local_ts.date() < since.date():
@@ -284,8 +290,7 @@ def plot_pulse_history(args):
                 if until is not None and local_ts.date() > until.date():
                     continue
 
-                print(local_ts.strftime("%Y-%m-%dT%H:%M:%S"), msg["heart_rate"])
-
+                print(local_ts.strftime(DATETIME_FORMAT), msg["heart_rate"])
                 dates.append(local_ts)
                 values.append(msg["heart_rate"])
 
@@ -301,7 +306,7 @@ def plot_pulse_history(args):
     x.tick_params(axis='x', rotation=45)
     x.legend()
 
-    plt.xlabel("Date")
+    plt.xlabel("Time")
     plt.ylabel("Heart rate")
     plt.title("Heart rate over time")
 
@@ -347,6 +352,42 @@ def plot_sleep_history(args):
     ax.xaxis.set_major_locator(mdates.DayLocator(interval=1))
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
     ax.legend()
+
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
+
+@cli_command("stress", description="visualises stress history")
+def plot_stress_history(args):
+    dates = []
+    values = []
+    for msg in parse_files(args):
+        if msg.group_name == "stress_level_mesgs":
+            dt_val = msg.timestamp.astimezone()
+            val = msg["stress_level_value"]
+            if val < 0:
+                continue
+            dates.append(dt_val)
+            values.append(val)
+            print(dt_val.strftime(DATETIME_FORMAT), val)
+
+    if not values:
+        return
+    if not args.plot:
+        return
+
+    plt.plot(dates, values, marker="o", color="red", label="Stress level")
+    x = plt.gca()
+    x.xaxis.set_major_locator(mdates.HourLocator(interval=1))
+    x.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d %H:%M"))
+    x.yaxis.set_major_locator(mticker.MultipleLocator(10))
+    x.tick_params(axis="x", rotation=45)
+    x.legend()
+
+    plt.xlabel("Time")
+    plt.ylabel("Stress level [0-100]")
+    plt.title("Stress level over time")
 
     plt.grid(True)
     plt.tight_layout()
