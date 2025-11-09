@@ -345,7 +345,7 @@ def plot_sleep_history(args):
     started_at = None
     finished_at = None
     for msg in parse_files(args):
-        if msg.group_name == "event_mesgs" and msg.has_fields("event_type") and msg["event_type"] == "start":
+        if msg.group_name == "event_mesgs" and msg.fields.get("event_type") == "start":
             _add_duration(started_at, finished_at)
             started_at = msg.timestamp
             # print(msg.timestamp, "start")
