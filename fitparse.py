@@ -335,41 +335,38 @@ def plot_pulse_history(args):
 
 @cli_command("sleep", description="visualises sleep history")
 def plot_sleep_history(args):
-    rows = defaultdict(lambda: [None, 0])
-
-    def _add_duration(started_at, finished_at):
-        if started_at is not None and finished_at is not None:
-            rows[finished_at.date()][0] = finished_at - started_at
-
+    rows = []
+    row = [0] * 3
     started_at, finished_at = None, None
     for msg in parse_files(args):
         if msg.group_name == "event_mesgs":
             if msg.fields.get("event_type") == "start":
-                _add_duration(started_at, finished_at)
                 started_at = msg.timestamp
             elif msg.fields.get("event_type") == "stop":
+                if started_at is None:
+                    continue
                 finished_at = msg.timestamp
+                duration = round((finished_at - started_at).seconds / 3600., 2)
+                row[0], row[1] = finished_at.date(), duration
+                rows.append(row)
+                row = [0] * 3
         elif msg.group_name == "sleep_assessment_mesgs":
             # XXX: sleep_assessment_mesgs has no timestamp
-            # Relying on the fact that it goes right after event_mesgs.event_type
-            if finished_at is not None:
-                rows[finished_at.date()][1] = msg["overall_sleep_score"]
+            # Relying on the fact that it goes right after
+            # event_mesgs.event_type = stop
+            if finished_at is not None and rows:
+                rows[-1][2] = msg["overall_sleep_score"]
 
-    _add_duration(started_at, finished_at)  # add the last remaining point if any
+    for row in rows:
+        print(row[0], row[1], row[2])
+    dates = [row[0] for row in rows]
+    values = [row[1] for row in rows]
+    sleep_score = [row[2] for row in rows]
 
     if not rows:
         return
     if not args.plot:
         return
-    dates, values, sleep_score = [], [], []
-    for d in sorted(rows.keys()):
-        if rows[d][0] is None:
-            continue
-        duration = round(rows[d][0].seconds / 3600., 2)
-        print(d, duration, rows[d][1])
-        dates.append(d)
-        values.append(duration)
-        sleep_score.append(rows[d][1])
 
     ax1 = plt.gca()
     bar_plot(ax1, dates, values,
