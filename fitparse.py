@@ -104,7 +104,7 @@ def _parse_args():
     parser.add_argument("-s", "--since", default=None, required=False,
                         type=_parse_time_interval,
                         help="show timeseries data on or newer than the specified date")
-    parser.add_argument("-p", "--plot", action='store_true', required=False,
+    parser.add_argument("-p", "--plot", action="store_true", required=False,
                         help="Plot data if sub-command supports it.")
     parser.add_argument("-u", "--until", default=None, required=False,
                         type=_parse_time_interval,
@@ -335,43 +335,58 @@ def plot_pulse_history(args):
 
 @cli_command("sleep", description="visualises sleep history")
 def plot_sleep_history(args):
-    durations = []
+    rows = defaultdict(lambda: [None, 0])
 
     def _add_duration(started_at, finished_at):
         if started_at is not None and finished_at is not None:
-            print(finished_at, finished_at - started_at)
-            durations.append((finished_at, finished_at - started_at))
+            rows[finished_at.date()][0] = finished_at - started_at
 
-    started_at = None
-    finished_at = None
+    started_at, finished_at = None, None
     for msg in parse_files(args):
-        if msg.group_name == "event_mesgs" and msg.fields.get("event_type") == "start":
-            _add_duration(started_at, finished_at)
-            started_at = msg.timestamp
-            # print(msg.timestamp, "start")
-        elif msg.group_name == "sleep_level_mesgs":
-            # print(msg.timestamp, "sleep")
-            finished_at = msg.timestamp
+        if msg.group_name == "event_mesgs":
+            if msg.fields.get("event_type") == "start":
+                _add_duration(started_at, finished_at)
+                started_at = msg.timestamp
+            elif msg.fields.get("event_type") == "stop":
+                finished_at = msg.timestamp
+        elif msg.group_name == "sleep_assessment_mesgs":
+            # XXX: sleep_assessment_mesgs has no timestamp
+            # Relying on the fact that it goes right after event_mesgs.event_type
+            if finished_at is not None:
+                rows[finished_at.date()][1] = msg["overall_sleep_score"]
 
     _add_duration(started_at, finished_at)  # add the last remaining point if any
 
-    if not durations:
+    if not rows:
         return
     if not args.plot:
         return
+    dates, values, sleep_score = [], [], []
+    for d in sorted(rows.keys()):
+        if rows[d][0] is None:
+            continue
+        duration = round(rows[d][0].seconds / 3600., 2)
+        print(d, duration, rows[d][1])
+        dates.append(d)
+        values.append(duration)
+        sleep_score.append(rows[d][1])
 
-    dates = [d[0].date() for d in durations]
-    values = [round(d[1].seconds / 3600., 2) for d in durations]
-
-    bar_plot(plt, dates, values,
+    ax1 = plt.gca()
+    bar_plot(ax1, dates, values,
              plot_label="Sleep duration",
              color="blue", x_label="Date", y_label="Hours",
              title=f"Sleep duration over time from {dates[0]} to {dates[-1]}")
 
-    ax = plt.gca()
-    ax.xaxis.set_major_locator(mdates.DayLocator(interval=1))
-    ax.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
-    ax.legend()
+    ax1.xaxis.set_major_locator(mdates.DayLocator(interval=1))
+    ax1.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
+
+    ax2 = ax1.twinx()
+    ax2.plot(dates, sleep_score, marker="o", color="red", label="Sleep score")
+    ax2.set_ylim(0, None)
+
+    handles1, labels1 = ax1.get_legend_handles_labels()
+    handles2, labels2 = ax2.get_legend_handles_labels()
+    ax1.legend(handles1 + handles2, labels1 + labels2)
 
     plt.grid(True)
     plt.tight_layout()
