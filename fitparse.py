@@ -144,6 +144,13 @@ def parse_files(args):
             yield msg
 
 
+def print_table(table, dt_format="%Y-%m-%d"):
+    for row in table:
+        row_str = list(row)
+        row_str[0] = row[0].strftime(dt_format)
+        print(" ".join([str(v) for v in row_str]))
+
+
 # pylint: disable=R0913
 def bar_plot(p, dates, values,
              title="", color=None, plot_label="", x_label="", y_label=""):
@@ -364,11 +371,8 @@ def plot_sleep_history(args):
             if finished_at is not None and rows:
                 rows[-1][2] = msg["overall_sleep_score"]
 
-    for row in rows:
-        print(row[0], row[1], row[2])
-    dates = [row[0] for row in rows]
-    values = [row[1] for row in rows]
-    sleep_score = [row[2] for row in rows]
+    table = np.array(rows)
+    print_table(table)
 
     if not rows:
         return
@@ -376,16 +380,16 @@ def plot_sleep_history(args):
         return
 
     ax1 = plt.gca()
-    bar_plot(ax1, dates, values,
+    bar_plot(ax1, table[:, 0], table[:, 1],
              plot_label="Sleep duration",
              color="blue", x_label="Date", y_label="Hours",
-             title=f"Sleep duration over time from {dates[0]} to {dates[-1]}")
+             title=f"Sleep duration over time from {table[0, 0]} to {table[-1, 0]}")
 
     ax1.xaxis.set_major_locator(mdates.DayLocator(interval=1))
     ax1.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
 
     ax2 = ax1.twinx()
-    ax2.plot(dates, sleep_score, marker="o", color="red", label="Sleep score")
+    ax2.plot(table[:, 0], table[:, 2], marker="o", color="red", label="Sleep score")
     ax2.set_ylim(0, None)
 
     handles1, labels1 = ax1.get_legend_handles_labels()
@@ -395,13 +399,6 @@ def plot_sleep_history(args):
     plt.grid(True)
     plt.tight_layout()
     plt.show()
-
-
-def print_table(table, ):
-    for row in table:
-        row_str = list(row)
-        row_str[0] = row[0].strftime(DATETIME_FORMAT)
-        print(" ".join([str(v) for v in row_str]))
 
 
 @cli_command("stress", description="visualises stress history")
@@ -416,7 +413,7 @@ def plot_stress_history(args):
             rows.append([dt_val, val])
 
     table = np.array(rows)
-    print_table(table)
+    print_table(table, dt_format=DATETIME_FORMAT)
     if not args.plot:
         return
     plot_hourly_data_with_lines(table[:, 0], table[:, 1],
