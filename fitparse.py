@@ -295,8 +295,7 @@ def plot_steps_history(args):
 
 @cli_command("pulse", description="visualises heart rate(pulse) history")
 def plot_pulse_history(args):
-    dates = []
-    values = []
+    rows = []
     last_ts = None
     last_ts_16 = None
 
@@ -334,13 +333,13 @@ def plot_pulse_history(args):
                 if until is not None and local_ts.date() > until.date():
                     continue
 
-                print(local_ts.strftime(DATETIME_FORMAT), msg["heart_rate"])
-                dates.append(local_ts)
-                values.append(msg["heart_rate"])
+                rows.append([local_ts, msg["heart_rate"]])
 
+    table = np.array(rows)
+    print_table(table, dt_format=DATETIME_FORMAT)
     if not args.plot:
         return
-    plot_hourly_data_with_lines(dates, values,
+    plot_hourly_data_with_lines(table[:, 0], table[:, 1],
                                 label="Pulse",
                                 title="Heart rate over time",
                                 y_label="Heart rate")
