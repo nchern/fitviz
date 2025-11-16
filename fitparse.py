@@ -143,6 +143,7 @@ def parse_files(args):
             yield msg
 
 
+# pylint: disable=R0913
 def bar_plot(p, dates, values,
              title="", color=None, plot_label="", x_label="", y_label=""):
     p.bar(dates, values, width=0.8, label=plot_label, color=color)
@@ -335,6 +336,7 @@ def plot_pulse_history(args):
 
 @cli_command("sleep", description="visualises sleep history")
 def plot_sleep_history(args):
+    # pylint: disable=R0914
     rows = []
     row = [0] * 3
     started_at, finished_at = None, None
