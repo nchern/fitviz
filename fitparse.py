@@ -7,6 +7,7 @@ import sys
 
 from collections import defaultdict, namedtuple
 
+import numpy as np
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
@@ -173,8 +174,12 @@ def plot_hourly_data_with_lines(
     y_label="",
     y_locator=None,
 ):
-    if not dates or not values:
-        return
+    try:
+        if np.size(dates) < 1:
+            return
+    except:
+        if not dates or not values:
+            return
 
     plt.plot(dates, values, marker="o", color=color, label=label)
     ax = plt.gca()
@@ -392,23 +397,29 @@ def plot_sleep_history(args):
     plt.show()
 
 
+def print_table(table, ):
+    for row in table:
+        row_str = list(row)
+        row_str[0] = row[0].strftime(DATETIME_FORMAT)
+        print(" ".join([str(v) for v in row_str]))
+
+
 @cli_command("stress", description="visualises stress history")
 def plot_stress_history(args):
-    dates = []
-    values = []
+    rows = []
     for msg in parse_files(args):
         if msg.group_name == "stress_level_mesgs":
             dt_val = msg.timestamp.astimezone()
             val = msg["stress_level_value"]
             if val < 0:
                 continue
-            dates.append(dt_val)
-            values.append(val)
-            print(dt_val.strftime(DATETIME_FORMAT), val)
+            rows.append([dt_val, val])
 
+    table = np.array(rows)
+    print_table(table)
     if not args.plot:
         return
-    plot_hourly_data_with_lines(dates, values,
+    plot_hourly_data_with_lines(table[:, 0], table[:, 1],
                                 label="Stress level",
                                 title="Stress level over time",
                                 y_label="Stress level [0-100]",
