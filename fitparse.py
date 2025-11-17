@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 import sys
 
 
@@ -84,9 +84,34 @@ def _get_filenames(args):
             yield name
 
 
+def _parse_time_interval_human(s):
+    s = s.lower()
+    now = datetime.now().astimezone()
+    units = {"day": 1, "days": 1, "week": 7, "weeks": 7}
+    if s == "today":
+        return now.date()
+    if s == "this week":
+        return now - timedelta(days=now.weekday())
+    if s == "this month":
+        return now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    try:
+        # N day(s) ago; N week(s) ago;
+        n, unit, ago = s.split(" ")
+        if ago != "ago" or unit not in units:
+            raise ValueError()
+        n = int(n)
+        return now - timedelta(days=n * units[unit])
+    except ValueError:
+        pass
+    return None
+
+
 def _parse_time_interval(s):
     try:
         s = s.strip()
+        val = _parse_time_interval_human(s)
+        if val is not None:
+            return val
         val = datetime.strptime(s, "%Y-%m-%d")
         return val.replace(tzinfo=datetime.now().astimezone().tzinfo)
     except Exception as ex:
