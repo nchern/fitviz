@@ -414,7 +414,7 @@ def plot_sleep_history(args):
 
     avg = round(np.mean(table[:, 1]), 2)
     ax1.axhline(avg, color="green", linewidth=2,
-                label=f"Average sleep duration - {avg}")
+                label=f"Average sleep duration: {avg}")
 
     ax2 = ax1.twinx()
     ax2.plot(table[:, 0], table[:, 2], marker="o", color="red", label="Sleep score")
