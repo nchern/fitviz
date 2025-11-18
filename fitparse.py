@@ -94,6 +94,8 @@ def _parse_time_interval_human(s):
         return now - timedelta(days=now.weekday())
     if s == "this month":
         return now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    if s == "last month":
+        return (now - timedelta(days=(now.day+1))).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     try:
         # N day(s) ago; N week(s) ago;
         n, unit, ago = s.split(" ")
