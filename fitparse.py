@@ -412,6 +412,10 @@ def plot_sleep_history(args):
     ax1.xaxis.set_major_locator(mdates.DayLocator(interval=1))
     ax1.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
 
+    avg = round(np.mean(table[:, 1]), 2)
+    ax1.axhline(avg, color="green", linewidth=2,
+                label=f"Average sleep duration - {avg}")
+
     ax2 = ax1.twinx()
     ax2.plot(table[:, 0], table[:, 2], marker="o", color="red", label="Sleep score")
     ax2.set_ylim(0, None)
