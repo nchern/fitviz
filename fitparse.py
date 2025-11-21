@@ -84,7 +84,7 @@ def _get_filenames(args):
 def _parse_time_interval_human(s):
     s = s.lower()
     now = datetime.now().astimezone()
-    units = {"day": 1, "days": 1, "week": 7, "weeks": 7}
+    units = {"day": 1, "week": 7}
     if s == "today":
         return now.date()
     if s == "this week":
@@ -96,10 +96,10 @@ def _parse_time_interval_human(s):
     try:
         # N day(s) ago; N week(s) ago;
         n, unit, ago = s.split(" ")
+        unit = unit.rstrip("s")
         if ago != "ago" or unit not in units:
             raise ValueError()
-        n = int(n)
-        return now - timedelta(days=n * units[unit])
+        return now - timedelta(days=int(n) * units[unit])
     except ValueError:
         pass
     return None
@@ -117,6 +117,13 @@ def _parse_time_interval(s):
         raise argparse.ArgumentTypeError(f"Bad time interval: {ex}")
 
 
+def _parse_range(s):
+    since, _, until = s.partition("..")
+    since = _parse_time_interval(since)
+    until = _parse_time_interval(until)
+    return since, until
+
+
 def _parse_args():
     parser = argparse.ArgumentParser(description="A program to parse FIT files")
     parser.add_argument("-b", "--batch", action='store_true', required=False,
@@ -126,14 +133,19 @@ def _parse_args():
                         help="Command to execute")
     parser.add_argument("-f", "--fields", type=str, required=False, default="",
                         help="Fields to dump in csv mode")
-    parser.add_argument("-s", "--since", default=None, required=False,
-                        type=_parse_time_interval,
-                        help="show timeseries data on or newer than the specified date")
     parser.add_argument("-p", "--plot", action="store_true", required=False,
                         help="Plot data if sub-command supports it.")
-    parser.add_argument("-u", "--until", default=None, required=False,
-                        type=_parse_time_interval,
-                        help="show timeseries data on or older than the specified date")
+
+    group = parser.add_mutually_exclusive_group(required=False)
+    group.add_argument("-s", "--since", default=None, required=False,
+                       type=_parse_time_interval,
+                       help="Show timeseries data on or newer than the specified date")
+    group.add_argument("-r", "--range", default=None, required=False,
+                       type=_parse_range,
+                       help="Show timeseries data for the dates that belong to a given interval.")
+    group.add_argument("-u", "--until", default=None, required=False,
+                       type=_parse_time_interval,
+                       help="Show timeseries data on or older than the specified date")
     parser.add_argument("file_names", nargs="*")
     return parser.parse_args()
 
@@ -462,6 +474,8 @@ def plot_stress_history(args):
 
 
 def main(args):
+    if args.range:
+        args.since, args.until = args.range
     try:
         COMMANDS[args.command].cmd(args)
     except (KeyboardInterrupt, BrokenPipeError):
