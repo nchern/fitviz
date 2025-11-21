@@ -118,9 +118,12 @@ def _parse_time_interval(s):
 
 
 def _parse_range(s):
-    since, _, until = s.partition("..")
-    since = _parse_time_interval(since)
-    until = _parse_time_interval(until)
+    since, until = None, None
+    since_str, _, until_str = s.partition("..")
+    if since_str:
+        since = _parse_time_interval(since_str)
+    if until_str:
+        until = _parse_time_interval(until_str)
     return since, until
 
 
@@ -136,16 +139,15 @@ def _parse_args():
     parser.add_argument("-p", "--plot", action="store_true", required=False,
                         help="Plot data if sub-command supports it.")
 
-    group = parser.add_mutually_exclusive_group(required=False)
-    group.add_argument("-s", "--since", default=None, required=False,
-                       type=_parse_time_interval,
-                       help="Show timeseries data on or newer than the specified date")
-    group.add_argument("-r", "--range", default=None, required=False,
-                       type=_parse_range,
-                       help="Show timeseries data for the dates that belong to a given interval.")
-    group.add_argument("-u", "--until", default=None, required=False,
-                       type=_parse_time_interval,
-                       help="Show timeseries data on or older than the specified date")
+    parser.add_argument("-s", "--since", default=None, required=False,
+                        type=_parse_time_interval,
+                        help="Show timeseries data on or newer than the specified date")
+    parser.add_argument("-r", "--range", default=None, required=False,
+                        type=_parse_range,
+                        help="Show timeseries data for the dates that belong to a given interval.")
+    parser.add_argument("-u", "--until", default=None, required=False,
+                        type=_parse_time_interval,
+                        help="Show timeseries data on or older than the specified date")
     parser.add_argument("file_names", nargs="*")
     return parser.parse_args()
 
