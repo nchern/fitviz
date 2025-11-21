@@ -4,8 +4,8 @@ import argparse
 from datetime import date, datetime, timedelta, timezone
 import sys
 
-
-from collections import defaultdict, namedtuple
+from collections import namedtuple
+from functools import reduce
 
 import numpy as np
 import matplotlib.dates as mdates
@@ -28,9 +28,6 @@ def cli_command(name, description=""):
         COMMANDS[name] = _cmd(f, description)
         return f
     return _dec
-
-
-ActivityRecord = namedtuple("ActivityRecord", ["active_calories", "distance", "steps"])
 
 
 class FITMsg:
@@ -262,54 +259,65 @@ def dump_monitoring_steps(args):
 @cli_command("steps", description="visualises steps history")
 def plot_steps_history(args):
     # pylint: disable=too-many-locals
-    ds = defaultdict(dict)
-    for msg in parse_files(args):
-        if msg.group_name == "monitoring_mesgs" and msg.has_fields("steps", "activity_type"):
-            ts = msg.timestamp.date()
-            # active_calories, distance(meters)
-            # running -> (calories, distance, steps)
-            # walking -> (calories, distance, steps)
-            # XXX: fragile! relies on messages chronological order in files:
-            #   as message timestamps contain time data not only dates
-            ds[ts][msg["activity_type"]] = ActivityRecord(
-                msg["active_calories"], msg["distance"], msg["steps"])
-    for k in sorted(ds.keys()):
-        print(k,
-              "active_calories:", sum(r.active_calories for r in ds[k].values()),
-              "distance:", round(sum(r.distance for r in ds[k].values()), 2),
-              "steps:", sum(r.steps for r in ds[k].values()))
+    def _map():
+        for msg in parse_files(args):
+            if msg.group_name == "monitoring_mesgs" and msg.has_fields("steps", "activity_type"):
+                ts = msg.timestamp.date()
+                # (date, activity) -> (calories, distance[meters], steps)
+                # Examples:
+                # <date>-running -> (steps, distance, calories)
+                # <date>-walking -> (steps, distance, calories)
+                date_str = ts.strftime("%Y-%m-%d")
+                key = f"{date_str}-{msg['activity_type']}"
+                yield (key, [ts, msg["steps"], msg["distance"]/1000., msg["active_calories"]])
 
-    if not ds:
+    # take only last report in a day per activity
+    # XXX: fragile! relies on messages chronological order in files:
+    #   there can be multiple records for same activities during a day
+    #   with different timestamps. The later ones overwrite earlier once
+    ds = dict(_map())
+
+    def _combine(d, row):
+        k = row[0]
+        if k not in d:
+            d[k] = row
+        else:
+            for i in range(1, len(row)):
+                d[k][i] += row[i]
+        d[k][2] = round(d[k][2], 2)
+        return d
+
+    ds = reduce(_combine, ds.values(), {})
+    rows = [ds[k] for k in sorted(ds.keys())]
+
+    if not rows:
         return
+
+    table = np.array(rows)
+    print_table(table)
+
     if not args.plot:
         return
 
-    dates = ds.keys()
-
-    values = [sum(r.steps for r in ds[k].values()) for k in ds]
-    distances = [round(sum(r.distance for r in ds[k].values())/1000, 2) for k in ds]
-    calories = [sum(r.active_calories for r in ds[k].values()) for k in ds]
-
-    days = len(dates)
-    total = sum(values)
-    avg = float(total) / days
+    days = len(table[:, 0])
+    total = np.sum(table[:, 1])
 
     fig, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex=True, figsize=(10, 6))
 
     # steps plot
-    bar_plot(ax1, dates, values, plot_label="Steps", x_label="Date", y_label="Steps",
+    bar_plot(ax1, table[:, 0], table[:, 1], plot_label="Steps", x_label="Date", y_label="Steps",
              title=f"Steps history over {days} day(s); total steps: {total}")
     ax1.axhline(DAILY_STEPS_GOAL, color="red", linewidth=1.5, label="Daily goal")
-    ax1.axhline(round(avg, 2), color="green", linewidth=1, label="Avg. steps / day")
+    ax1.axhline(round(np.mean(table[:, 1]), 2), color="green", linewidth=1, label="Avg. steps / day")
     ax1.legend()
 
     # calories plot
-    bar_plot(ax2, dates, calories, color="tab:red", plot_label="Active calories (line)",
+    bar_plot(ax2, table[:, 0], table[:, 3], color="tab:red", plot_label="Active calories (line)",
              x_label="Date", y_label="Active calories")
     ax2.legend()
 
     # distance plot
-    bar_plot(ax3, dates, distances, color="tab:blue", plot_label="Distance, km",
+    bar_plot(ax3, table[:, 0], table[:, 2], color="tab:blue", plot_label="Distance, km",
              x_label="Date", y_label="Kilometers")
     ax3.xaxis.set_major_locator(mdates.DayLocator(interval=1))
     ax3.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
