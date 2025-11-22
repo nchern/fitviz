@@ -86,7 +86,7 @@ def _parse_time_interval_human(s):
     now = datetime.now().astimezone()
     units = {"day": 1, "week": 7}
     if s == "today":
-        return now.date()
+        return now
     if s == "this week":
         return now - timedelta(days=now.weekday())
     if s == "this month":
