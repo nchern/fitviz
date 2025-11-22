@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
 
 import argparse
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 import sys
 
 from collections import namedtuple
+from dataclasses import dataclass, field
+from enum import Enum
 from functools import reduce
+from typing import Any
 
 import numpy as np
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
+from matplotlib.axes import Axes
 
 from garmin_fit_sdk import Decoder, Stream
 
@@ -189,6 +193,64 @@ def print_table(table, dt_format="%Y-%m-%d"):
         print(" ".join([str(v) for v in row_str]))
 
 
+class GraphKind(Enum):
+    BAR = 1
+    LINES = 2
+
+
+@dataclass
+class Graph:
+    axes: Axes
+    kind: GraphKind
+    x: np.array
+    y: np.array
+
+    color: str = ""
+    label: str = ""
+    title: str = ""
+
+    x_label: str = ""
+    y_label: str = ""
+
+    x_locator: Any = None
+    y_locator: Any = None
+
+
+# Subplot: -> [Graph, Graph...]
+def plotter(*subplots):
+    for subplot in subplots:
+        # support 1 graph for now
+        g = subplot[0]
+        try:
+            if np.size(g.x) < 1:
+                continue
+        except:
+            if not g.x or not g.y:
+                continue
+        if g.kind == GraphKind.LINES:
+            plot_hourly_data_with_lines(g)
+        else:
+            raise ValueError(f"unkwnown kind: {g.kind}")
+
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_hourly_data_with_lines(g: Graph):
+    g.axes.plot(g.x, g.y, marker="o", color=g.color, label=g.label)
+    g.axes.xaxis.set_major_locator(mdates.HourLocator(interval=1))
+    g.axes.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d %H:%M"))
+    if g.y_locator is not None:
+        g.axes.yaxis.set_major_locator(g.y_locator)
+    g.axes.tick_params(axis='x', rotation=45)
+    g.axes.legend()
+
+    g.axes.set_xlabel(g.x_label)
+    g.axes.set_ylabel(g.y_label)
+    g.axes.set_title(g.title)
+
+
 # pylint: disable=R0913
 def bar_plot(p, dates, values,
              title="", color=None, plot_label="", x_label="", y_label=""):
@@ -207,41 +269,6 @@ def bar_plot(p, dates, values,
         p.set_title(title)
     except AttributeError:
         p.title(title)
-
-
-def plot_hourly_data_with_lines(
-    dates,
-    values,
-    label="",
-    title="",
-    color="red",
-    x_label="Time",
-    y_label="",
-    y_locator=None,
-):
-    try:
-        if np.size(dates) < 1:
-            return
-    except:
-        if not dates or not values:
-            return
-
-    plt.plot(dates, values, marker="o", color=color, label=label)
-    ax = plt.gca()
-    ax.xaxis.set_major_locator(mdates.HourLocator(interval=1))
-    ax.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d %H:%M"))
-    if y_locator is not None:
-        ax.yaxis.set_major_locator(y_locator)
-    ax.tick_params(axis='x', rotation=45)
-    ax.legend()
-
-    plt.xlabel(x_label)
-    plt.ylabel(y_label)
-    plt.title(title)
-
-    plt.grid(True)
-    plt.tight_layout()
-    plt.show()
 
 
 @cli_command("csv", description="prints records in csv format")
@@ -388,10 +415,12 @@ def plot_pulse_history(args):
     print_table(table, dt_format=DATETIME_FORMAT)
     if not args.plot:
         return
-    plot_hourly_data_with_lines(table[:, 0], table[:, 1],
-                                label="Pulse",
-                                title="Heart rate over time",
-                                y_label="Heart rate")
+    plotter([Graph(kind=GraphKind.LINES, axes=plt.gca(), x=table[:, 0], y=table[:, 1],
+                   color="red",
+                   label="Pulse",
+                   title="Heart rate over time",
+                   x_label="Time",
+                   y_label="Heart rate")])
 
 
 @cli_command("sleep", description="visualises sleep history")
@@ -468,11 +497,13 @@ def plot_stress_history(args):
     print_table(table, dt_format=DATETIME_FORMAT)
     if not args.plot:
         return
-    plot_hourly_data_with_lines(table[:, 0], table[:, 1],
-                                label="Stress level",
-                                title="Stress level over time",
-                                y_label="Stress level [0-100]",
-                                y_locator=mticker.MultipleLocator(10))
+    plotter([Graph(kind=GraphKind.LINES, axes=plt.gca(), x=table[:, 0], y=table[:, 1],
+                   color="red",
+                   label="Stress level",
+                   title="Stress level over time",
+                   x_label="Time",
+                   y_label="Stress level [0-100]",
+                   y_locator=mticker.MultipleLocator(10))])
 
 
 def main(args):
