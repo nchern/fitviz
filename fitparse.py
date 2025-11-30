@@ -190,23 +190,14 @@ def print_table(table, dt_format="%Y-%m-%d"):
 
 
 # pylint: disable=R0913
-def bar_plot(p, dates, values,
+def bar_plot(axes, dates, values,
              title="", color=None, plot_label="", x_label="", y_label=""):
-    p.bar(dates, values, width=0.8, label=plot_label, color=color)
+    axes.bar(dates, values, width=0.8, label=plot_label, color=color)
     for x, y in zip(dates, values):
-        p.text(x, y, str(y), ha="center", va="bottom")
-    try:
-        p.set_xlabel(x_label)
-    except AttributeError:
-        p.xlabel(x_label)
-    try:
-        p.set_ylabel(y_label)
-    except AttributeError:
-        p.ylabel(y_label)
-    try:
-        p.set_title(title)
-    except AttributeError:
-        p.title(title)
+        axes.text(x, y, str(y), ha="center", va="bottom")
+    axes.set_xlabel(x_label)
+    axes.set_ylabel(y_label)
+    axes.set_title(title)
 
 
 def plot_hourly_data_with_lines(
