@@ -363,7 +363,8 @@ def plot_pulse_history(args):
             if msg.has_fields("timestamp"):
                 last_ts_16 = None
                 last_ts = int(msg.timestamp.timestamp())
-            if msg.has_fields("timestamp_16", "heart_rate"):
+            if msg.has_fields("timestamp_16", "heart_rate") and msg["heart_rate"] > 0:
+                # filter out zero values as flukes
                 delta = 0
                 real_ts = last_ts
                 ts16 = msg["timestamp_16"]
