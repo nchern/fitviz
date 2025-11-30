@@ -304,43 +304,40 @@ def plot_steps_history(args):
     ds = reduce(_combine, ds.values(), {})
     rows = [ds[k] for k in sorted(ds.keys())]
 
-    if not rows:
-        return
-
     table = np.array(rows)
     print_table(table)
 
-    if not args.plot:
-        return
+    def _plot():
+        days = len(table[:, 0])
+        total = np.sum(table[:, 1])
 
-    days = len(table[:, 0])
-    total = np.sum(table[:, 1])
+        fig, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex=True, figsize=(10, 6))
 
-    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, sharex=True, figsize=(10, 6))
+        # steps plot
+        bar_plot(ax1, table[:, 0], table[:, 1], plot_label="Steps", x_label="Date", y_label="Steps",
+                 title=f"Steps history over {days} day(s); total steps: {total}")
+        ax1.axhline(DAILY_STEPS_GOAL, color="red", linewidth=1.5, label="Daily goal")
+        avg = round(np.mean(table[:, 1]), 2)
+        ax1.axhline(avg, color="green", linewidth=1, label=f"Avg. steps / day: {avg}")
+        ax1.legend()
 
-    # steps plot
-    bar_plot(ax1, table[:, 0], table[:, 1], plot_label="Steps", x_label="Date", y_label="Steps",
-             title=f"Steps history over {days} day(s); total steps: {total}")
-    ax1.axhline(DAILY_STEPS_GOAL, color="red", linewidth=1.5, label="Daily goal")
-    avg = round(np.mean(table[:, 1]), 2)
-    ax1.axhline(avg, color="green", linewidth=1, label=f"Avg. steps / day: {avg}")
-    ax1.legend()
+        # calories plot
+        bar_plot(ax2, table[:, 0], table[:, 3], color="tab:red", plot_label="Active calories (line)",
+                 x_label="Date", y_label="Active calories")
+        ax2.legend()
 
-    # calories plot
-    bar_plot(ax2, table[:, 0], table[:, 3], color="tab:red", plot_label="Active calories (line)",
-             x_label="Date", y_label="Active calories")
-    ax2.legend()
+        # distance plot
+        bar_plot(ax3, table[:, 0], table[:, 2], color="tab:blue", plot_label="Distance, km",
+                 x_label="Date", y_label="Kilometers")
+        ax3.xaxis.set_major_locator(mdates.DayLocator(interval=1))
+        ax3.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
+        ax3.legend()
 
-    # distance plot
-    bar_plot(ax3, table[:, 0], table[:, 2], color="tab:blue", plot_label="Distance, km",
-             x_label="Date", y_label="Kilometers")
-    ax3.xaxis.set_major_locator(mdates.DayLocator(interval=1))
-    ax3.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
-    ax3.legend()
+        fig.autofmt_xdate()
+        fig.tight_layout()
+        plt.show()
 
-    fig.autofmt_xdate()
-    fig.tight_layout()
-    plt.show()
+    return _plot
 
 
 @cli_command("pulse", description="visualises heart rate(pulse) history")
@@ -388,12 +385,13 @@ def plot_pulse_history(args):
 
     table = np.array(rows)
     print_table(table, dt_format=DATETIME_FORMAT)
-    if not args.plot:
-        return
-    plot_hourly_data_with_lines(table[:, 0], table[:, 1],
-                                label="Pulse",
-                                title="Heart rate over time",
-                                y_label="Heart rate")
+
+    def _plot():
+        plot_hourly_data_with_lines(table[:, 0], table[:, 1],
+                                    label="Pulse",
+                                    title="Heart rate over time",
+                                    y_label="Heart rate")
+    return _plot
 
 
 @cli_command("sleep", description="visualises sleep history")
@@ -424,35 +422,33 @@ def plot_sleep_history(args):
     table = np.array(rows)
     print_table(table)
 
-    if not rows:
-        return
-    if not args.plot:
-        return
+    def _plot():
+        ax1 = plt.gca()
+        bar_plot(ax1, table[:, 0], table[:, 1],
+                 plot_label="Sleep duration",
+                 color="blue", x_label="Date", y_label="Hours",
+                 title=f"Sleep duration over time from {table[0, 0]} to {table[-1, 0]}")
 
-    ax1 = plt.gca()
-    bar_plot(ax1, table[:, 0], table[:, 1],
-             plot_label="Sleep duration",
-             color="blue", x_label="Date", y_label="Hours",
-             title=f"Sleep duration over time from {table[0, 0]} to {table[-1, 0]}")
+        ax1.xaxis.set_major_locator(mdates.DayLocator(interval=1))
+        ax1.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
 
-    ax1.xaxis.set_major_locator(mdates.DayLocator(interval=1))
-    ax1.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
+        avg = round(np.mean(table[:, 1]), 2)
+        ax1.axhline(avg, color="green", linewidth=2,
+                    label=f"Average sleep duration: {avg}")
 
-    avg = round(np.mean(table[:, 1]), 2)
-    ax1.axhline(avg, color="green", linewidth=2,
-                label=f"Average sleep duration: {avg}")
+        ax2 = ax1.twinx()
+        ax2.plot(table[:, 0], table[:, 2], marker="o", color="red", label="Sleep score")
+        ax2.set_ylim(0, None)
 
-    ax2 = ax1.twinx()
-    ax2.plot(table[:, 0], table[:, 2], marker="o", color="red", label="Sleep score")
-    ax2.set_ylim(0, None)
+        handles1, labels1 = ax1.get_legend_handles_labels()
+        handles2, labels2 = ax2.get_legend_handles_labels()
+        ax1.legend(handles1 + handles2, labels1 + labels2)
 
-    handles1, labels1 = ax1.get_legend_handles_labels()
-    handles2, labels2 = ax2.get_legend_handles_labels()
-    ax1.legend(handles1 + handles2, labels1 + labels2)
+        plt.grid(True)
+        plt.tight_layout()
+        plt.show()
 
-    plt.grid(True)
-    plt.tight_layout()
-    plt.show()
+    return _plot
 
 
 @cli_command("stress", description="visualises stress history")
@@ -468,20 +464,24 @@ def plot_stress_history(args):
 
     table = np.array(rows)
     print_table(table, dt_format=DATETIME_FORMAT)
-    if not args.plot:
-        return
-    plot_hourly_data_with_lines(table[:, 0], table[:, 1],
-                                label="Stress level",
-                                title="Stress level over time",
-                                y_label="Stress level [0-100]",
-                                y_locator=mticker.MultipleLocator(10))
+
+    def _plot():
+        plot_hourly_data_with_lines(table[:, 0], table[:, 1],
+                                    label="Stress level",
+                                    title="Stress level over time",
+                                    y_label="Stress level [0-100]",
+                                    y_locator=mticker.MultipleLocator(10))
+    return _plot
 
 
 def main(args):
     if args.range:
         args.since, args.until = args.range
     try:
-        COMMANDS[args.command].cmd(args)
+        plotter = COMMANDS[args.command].cmd(args)
+        if not args.plot or plotter is None:
+            return
+        plotter()
     except (KeyboardInterrupt, BrokenPipeError):
         pass
 
