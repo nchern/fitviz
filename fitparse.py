@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
 import argparse
-from datetime import date, datetime, timedelta, timezone
 import sys
 
 from collections import namedtuple
+from datetime import datetime, timedelta, timezone
+from enum import Enum
 from functools import reduce
 
 import numpy as np
@@ -105,14 +106,22 @@ def _parse_time_interval_human(s):
     return None
 
 
-def _parse_time_interval(s):
+class Rounding(Enum):
+    FLOOR = 1
+    CEIL = 2
+
+
+def _parse_time_interval(s: str, rounding: Rounding):
+    s = s.strip()
+    hour, minute, second = 0, 0, 0
     try:
-        s = s.strip()
         val = _parse_time_interval_human(s)
-        if val is not None:
-            return val
-        val = datetime.strptime(s, "%Y-%m-%d")
-        return val.replace(tzinfo=datetime.now().astimezone().tzinfo)
+        if val is None:
+            tz_info = datetime.now().astimezone().tzinfo
+            val = datetime.strptime(s, "%Y-%m-%d").replace(tzinfo=tz_info)
+        if rounding == Rounding.CEIL:
+            hour, minute, second = 23, 59, 59
+        return val.replace(hour=hour, minute=minute, second=second, microsecond=0)
     except Exception as ex:
         raise argparse.ArgumentTypeError(f"Bad time interval: {ex}")
 
@@ -121,9 +130,9 @@ def _parse_range(s):
     since, until = None, None
     since_str, _, until_str = s.partition("..")
     if since_str:
-        since = _parse_time_interval(since_str)
+        since = _parse_time_interval(since_str, rounding=Rounding.FLOOR)
     if until_str:
-        until = _parse_time_interval(until_str)
+        until = _parse_time_interval(until_str, rounding=Rounding.CEIL)
     return since, until
 
 
@@ -138,15 +147,14 @@ def _parse_args():
                         help="Fields to dump in csv mode")
     parser.add_argument("-p", "--plot", action="store_true", required=False,
                         help="Plot data if sub-command supports it.")
-
     parser.add_argument("-s", "--since", default=None, required=False,
-                        type=_parse_time_interval,
+                        type=lambda s: _parse_time_interval(s, rounding=Rounding.FLOOR),
                         help="Show timeseries data on or newer than the specified date")
     parser.add_argument("-r", "--range", default=None, required=False,
                         type=_parse_range,
                         help="Show timeseries data for the dates that belong to a given interval.")
     parser.add_argument("-u", "--until", default=None, required=False,
-                        type=_parse_time_interval,
+                        type=lambda s: _parse_time_interval(s, rounding=Rounding.CEIL),
                         help="Show timeseries data on or older than the specified date")
     parser.add_argument("file_names", nargs="*")
     return parser.parse_args()
@@ -213,6 +221,7 @@ def plot_hourly_data_with_lines(
     try:
         if np.size(dates) < 1:
             return
+        # pylint: disable=bare-except
     except:
         if not dates or not values:
             return
