@@ -199,13 +199,18 @@ def print_table(table, dt_format="%Y-%m-%d"):
 
 # pylint: disable=R0913
 def bar_plot(axes, dates, values,
-             title="", color=None, plot_label="", x_label="", y_label=""):
+             title="", color=None, plot_label="", x_label="", y_label="",
+             average=None):
     axes.bar(dates, values, width=0.8, label=plot_label, color=color)
     for x, y in zip(dates, values):
         axes.text(x, y, str(y), ha="center", va="bottom")
     axes.set_xlabel(x_label)
     axes.set_ylabel(y_label)
     axes.set_title(title)
+    if average:
+        avg = round(np.mean(values), 2)
+        axes.axhline(avg, color=average.get("color", "green"),
+                     linewidth=1, label=average["label"] % (avg))
 
 
 def plot_hourly_data_with_lines(
@@ -315,10 +320,9 @@ def plot_steps_history(args):
 
         # steps plot
         bar_plot(ax1, table[:, 0], table[:, 1], plot_label="Steps", x_label="Date", y_label="Steps",
-                 title=f"Steps history over {days} day(s); total steps: {total}")
+                 title=f"Steps history over {days} day(s); total steps: {total}",
+                 average={"label": "Avg. steps / day: %.2f"})
         ax1.axhline(DAILY_STEPS_GOAL, color="red", linewidth=1.5, label="Daily goal")
-        avg = round(np.mean(table[:, 1]), 2)
-        ax1.axhline(avg, color="green", linewidth=1, label=f"Avg. steps / day: {avg}")
         ax1.legend()
 
         # calories plot
@@ -427,14 +431,11 @@ def plot_sleep_history(args):
         bar_plot(ax1, table[:, 0], table[:, 1],
                  plot_label="Sleep duration",
                  color="blue", x_label="Date", y_label="Hours",
-                 title=f"Sleep duration over time from {table[0, 0]} to {table[-1, 0]}")
+                 title=f"Sleep duration over time from {table[0, 0]} to {table[-1, 0]}",
+                 average={"label": "Average sleep duration: %.2f"})
 
         ax1.xaxis.set_major_locator(mdates.DayLocator(interval=1))
         ax1.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
-
-        avg = round(np.mean(table[:, 1]), 2)
-        ax1.axhline(avg, color="green", linewidth=2,
-                    label=f"Average sleep duration: {avg}")
 
         ax2 = ax1.twinx()
         ax2.plot(table[:, 0], table[:, 2], marker="o", color="red", label="Sleep score")
