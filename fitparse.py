@@ -322,7 +322,8 @@ def plot_steps_history(args):
     bar_plot(ax1, table[:, 0], table[:, 1], plot_label="Steps", x_label="Date", y_label="Steps",
              title=f"Steps history over {days} day(s); total steps: {total}")
     ax1.axhline(DAILY_STEPS_GOAL, color="red", linewidth=1.5, label="Daily goal")
-    ax1.axhline(round(np.mean(table[:, 1]), 2), color="green", linewidth=1, label="Avg. steps / day")
+    avg = round(np.mean(table[:, 1]), 2)
+    ax1.axhline(avg, color="green", linewidth=1, label=f"Avg. steps / day: {avg}")
     ax1.legend()
 
     # calories plot
