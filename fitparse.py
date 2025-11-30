@@ -465,6 +465,27 @@ def plot_stress_history(args):
     return _plot
 
 
+@cli_command("hrv", description="visualises hrv history")
+def plot_hrv_history(args):
+    rows = []
+    for msg in parse_files(args):
+        if msg.group_name == "hrv_value_mesgs":
+            dt_val = msg.timestamp.astimezone()
+            val = msg["value"]
+            rows.append([dt_val, val])
+
+    table = np.array(rows)
+    print_table(table, dt_format=DATETIME_FORMAT)
+
+    def _plot():
+        plot_hourly_data_with_lines(table[:, 0], table[:, 1],
+                                    label="Heart rate variation, ms",
+                                    title="Heart rate variation level over time",
+                                    y_label="Milliseconds",
+                                    y_locator=mticker.MultipleLocator(10))
+    return _plot
+
+
 def main(args):
     if args.range:
         args.since, args.until = args.range
