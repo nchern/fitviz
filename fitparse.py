@@ -244,10 +244,6 @@ def plot_hourly_data_with_lines(
     plt.ylabel(y_label)
     plt.title(title)
 
-    plt.grid(True)
-    plt.tight_layout()
-    plt.show()
-
 
 @cli_command("csv", description="prints records in csv format")
 def dump_csv(args):
@@ -338,8 +334,6 @@ def plot_steps_history(args):
         ax3.legend()
 
         fig.autofmt_xdate()
-        fig.tight_layout()
-        plt.show()
 
     return _plot
 
@@ -445,10 +439,6 @@ def plot_sleep_history(args):
         handles2, labels2 = ax2.get_legend_handles_labels()
         ax1.legend(handles1 + handles2, labels1 + labels2)
 
-        plt.grid(True)
-        plt.tight_layout()
-        plt.show()
-
     return _plot
 
 
@@ -483,6 +473,9 @@ def main(args):
         if not args.plot or plotter is None:
             return
         plotter()
+        plt.tight_layout()
+        plt.grid(True)
+        plt.show()
     except (KeyboardInterrupt, BrokenPipeError):
         pass
 
