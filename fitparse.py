@@ -470,9 +470,25 @@ def plot_hrv_history(args):
     rows = []
     for msg in parse_files(args):
         if msg.group_name == "hrv_value_mesgs":
-            dt_val = msg.timestamp.astimezone()
-            val = msg["value"]
-            rows.append([dt_val, val])
+            rows.append([
+                            msg.timestamp.astimezone(),
+                            msg["value"],
+                            0,
+                            0,
+                            0,
+                            0,
+                            0,
+                        ])
+        elif msg.group_name == "hrv_status_summary_mesgs":
+            rows.append([
+                            msg.timestamp.astimezone(),
+                            0,
+                            msg["last_night_average"],
+                            msg["weekly_average"],
+                            msg["baseline_balanced_lower"],
+                            msg["baseline_balanced_upper"],
+                            msg["status"],
+                        ])
 
     table = np.array(rows)
     print_table(table, dt_format=DATETIME_FORMAT)
