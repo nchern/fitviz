@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import calendar
 import sys
 
 from collections import namedtuple
@@ -127,12 +128,19 @@ def _parse_time_interval(s: str, rounding: Rounding):
 
 
 def _parse_range(s):
+    s = s.lower().strip()
     since, until = None, None
-    since_str, _, until_str = s.partition("..")
-    if since_str:
-        since = _parse_time_interval(since_str, rounding=Rounding.FLOOR)
-    if until_str:
-        until = _parse_time_interval(until_str, rounding=Rounding.CEIL)
+    now = datetime.now().astimezone()
+    if s == "last month":
+        since = (now - timedelta(days=now.day+1)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        last_day = calendar.monthrange(since.year, since.month)[1]
+        until = since.replace(day=last_day, hour=23, minute=59, second=59, microsecond=0)
+    else:
+        since_str, _, until_str = s.partition("..")
+        if since_str:
+            since = _parse_time_interval(since_str, rounding=Rounding.FLOOR)
+        if until_str:
+            until = _parse_time_interval(until_str, rounding=Rounding.CEIL)
     return since, until
 
 
