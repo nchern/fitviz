@@ -331,14 +331,15 @@ def plot_steps_history(args):
 
         # calories plot
         bar_plot(ax2, table[:, 0], table[:, 3], color="tab:red", plot_label="Active calories (line)",
-                 x_label="Date", y_label="Active calories")
+                 x_label="Date", y_label="Active calories",
+                 average={"label": "Avg. calories / day: %.2f"})
         ax2.legend()
 
         # distance plot
         bar_plot(ax3, table[:, 0], table[:, 2], color="tab:blue", plot_label="Distance, km",
                  x_label="Date", y_label="Kilometers")
         ax3.xaxis.set_major_locator(mdates.DayLocator(interval=1))
-        ax3.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
+        ax3.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d %a"))
         ax3.legend()
 
         fig.autofmt_xdate()
@@ -437,7 +438,7 @@ def plot_sleep_history(args):
                  average={"label": "Average sleep duration: %.2f"})
 
         ax1.xaxis.set_major_locator(mdates.DayLocator(interval=1))
-        ax1.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
+        ax1.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d %a"))
 
         ax2 = ax1.twinx()
         ax2.plot(table[:, 0], table[:, 2], marker="o", color="red", label="Sleep score")
