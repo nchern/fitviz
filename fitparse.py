@@ -279,26 +279,55 @@ def dump_monitoring_steps(args):
             print(msg.file_name, msg["timestamp"], msg["activity_type"], msg["steps"])
 
 
+def calc_report_date(timestamp):
+    # Handle time zone changes
+    # Garmin does not track and expose timezone. All time stamps are
+    # always in UTC. The only thing that changes is the time of midnight
+    # - the time when the current day gets finalised and data export
+    # happens. For example:
+    # a watch is in UTC+14 TZ -> a day get finalised at 10:00 - Kiribati
+    # ...
+    # a watch is in UTC+03 TZ -> a day get finalised at 21:00
+    # a watch is in UTC+02 TZ -> a day get finalised at 22:00
+    # a watch is in UTC+01 TZ -> a day get finalised at 23:00 - Berlin
+    # a watch is in UTC    TZ -> a day get finalised at 00:00
+    # a watch is in UTC-01 TZ -> a day get finalised at 01:00
+    # a watch is in UTC-02 TZ -> a day get finalised at 02:00
+    # a watch is in UTC-03 TZ -> a day get finalised at 03:00
+    # ...
+    # a watch is in UTC-11 TZ -> a day get finalised at 10:00
+    # a watch is in UTC-12 TZ -> a day get finalised at 12:00 - Baker Island
+    offset_mins = -(timestamp.hour*60 + timestamp.minute)
+    if offset_mins < -720:  # -12h
+        offset_mins += 1440
+    return (timestamp + timedelta(minutes=offset_mins)).date() - timedelta(days=1)
+
+
 @cli_command("steps", description="visualises steps history")
 def plot_steps_history(args):
     # pylint: disable=too-many-locals
     def _map():
         for msg in parse_files(args):
-            if msg.group_name == "monitoring_mesgs" and msg.has_fields("steps", "activity_type"):
-                ts = msg.timestamp.date()
+            if msg.group_name == "monitoring_mesgs" and \
+                    msg.has_fields("steps", "activity_type", "duration_min") and \
+                    msg["duration_min"] == 1440:
+
+                dt = calc_report_date(msg.timestamp)
                 # (date, activity) -> (calories, distance[meters], steps)
                 # Examples:
                 # <date>-running -> (steps, distance, calories)
                 # <date>-walking -> (steps, distance, calories)
-                date_str = ts.strftime("%Y-%m-%d")
+                date_str = dt.strftime("%Y-%m-%d")
                 key = f"{date_str}-{msg['activity_type']}"
-                yield (key, [ts, msg["steps"], msg["distance"]/1000., msg["active_calories"]])
+                # print("\t", msg.file_name, "orig timestamp", msg.timestamp, key, msg["steps"],
+                #       msg["distance"]/1000., msg["active_calories"], file=sys.stderr)
+                yield (key, [dt, msg["steps"], msg["distance"]/1000., msg["active_calories"]])
 
     # take only last report in a day per activity
     # XXX: fragile! relies on messages chronological order in files:
     #   there can be multiple records for same activities during a day
     #   with different timestamps. The later ones overwrite earlier once
-    ds = dict(_map())
+    ds = list(v[1] for v in _map())
 
     def _combine(d, row):
         k = row[0]
@@ -310,7 +339,7 @@ def plot_steps_history(args):
         d[k][2] = round(d[k][2], 2)
         return d
 
-    ds = reduce(_combine, ds.values(), {})
+    ds = reduce(_combine, ds, {})
     rows = [ds[k] for k in sorted(ds.keys())]
 
     table = np.array(rows)
