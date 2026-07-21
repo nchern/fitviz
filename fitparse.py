@@ -419,6 +419,7 @@ def plot_pulse_history(args):
 
                 rows.append([local_ts, msg["heart_rate"]])
 
+    rows = sorted(rows, key=lambda r: r[0])
     table = np.array(rows)
     print_table(table, dt_format=DATETIME_FORMAT)
 
@@ -455,6 +456,7 @@ def plot_sleep_history(args):
             if finished_at is not None and rows:
                 rows[-1][2] = msg["overall_sleep_score"]
 
+    rows = sorted(rows, key=lambda r: r[0])
     table = np.array(rows)
     print_table(table)
 
@@ -491,6 +493,7 @@ def plot_stress_history(args):
                 continue
             rows.append([dt_val, val])
 
+    rows = sorted(rows, key=lambda r: r[0])
     table = np.array(rows)
     print_table(table, dt_format=DATETIME_FORMAT)
 
@@ -528,6 +531,7 @@ def plot_hrv_history(args):
                             msg["status"],
                         ])
 
+    rows = sorted(rows, key=lambda r: r[0])
     table = np.array(rows)
     print_table(table, dt_format=DATETIME_FORMAT)
 
