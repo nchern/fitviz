@@ -42,6 +42,9 @@ class FITMsg:
     def __getitem__(self, key):
         return self._fields[key]
 
+    def get(self, key, def_val):
+        return self._fields.get(key, def_val)
+
     @property
     def fields(self):
         return self._fields
@@ -508,28 +511,13 @@ def plot_stress_history(args):
 
 @cli_command("hrv", description="visualises hrv history")
 def plot_hrv_history(args):
+    # data in ~/Smartwatch/HRVStatus/
     rows = []
+    last_val = 0
     for msg in parse_files(args):
-        if msg.group_name == "hrv_value_mesgs":
-            rows.append([
-                            msg.timestamp.astimezone(),
-                            msg["value"],
-                            0,
-                            0,
-                            0,
-                            0,
-                            0,
-                        ])
-        elif msg.group_name == "hrv_status_summary_mesgs":
-            rows.append([
-                            msg.timestamp.astimezone(),
-                            0,
-                            msg["last_night_average"],
-                            msg["weekly_average"],
-                            msg["baseline_balanced_lower"],
-                            msg["baseline_balanced_upper"],
-                            msg["status"],
-                        ])
+        if msg.group_name == "hrv_value_mesgs" and msg.has_fields("value") and msg["value"] > 0:
+            last_val = msg["value"]
+            rows.append([msg.timestamp.astimezone(), last_val])
 
     rows = sorted(rows, key=lambda r: r[0])
     table = np.array(rows)
@@ -541,6 +529,49 @@ def plot_hrv_history(args):
                                     title="Heart rate variation level over time",
                                     y_label="Milliseconds",
                                     y_locator=mticker.MultipleLocator(10))
+    return _plot
+
+
+@cli_command("hrv-summary", description="visualises hrv history")
+def plot_hrv_summary(args):
+    # data in ~/Smartwatch/HRVStatus/
+    rows = []
+    for msg in parse_files(args):
+        if msg.group_name == "hrv_status_summary_mesgs":
+            rows.append([
+                            msg.timestamp.astimezone(),
+                            msg.get("last_night_average", 0),
+                            msg.get("weekly_average", 0),
+                            msg.get("baseline_balanced_lower", 0),
+                            msg.get("baseline_balanced_upper", 0),
+                            msg.get("status", "?"),
+                        ])
+
+    rows = sorted(rows, key=lambda r: r[0])
+    table = np.array(rows)
+    print_table(table, dt_format=DATETIME_FORMAT)
+
+    def _plot():
+        label = "Last night average"
+        title = "Heart rate variation level summary"
+        y_label = "Milliseconds"
+        y_locator = mticker.MultipleLocator(10)
+        dates = table[:, 0]
+        plt.plot(dates, table[:, 1], marker="o", color='magenta', label=label)
+        plt.plot(dates, table[:, 2], marker="o", color='blue', label="Weekly average")
+        plt.plot(dates, table[:, 3], marker="o", color='red', label="Balanced lower")
+        plt.plot(dates, table[:, 4], marker="o", color='green', label="Balanced upper")
+        ax = plt.gca()
+        ax.xaxis.set_major_locator(mdates.DayLocator(interval=1))
+        ax.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
+        ax.yaxis.set_major_locator(y_locator)
+        ax.tick_params(axis='x', rotation=45)
+        ax.legend()
+
+        plt.xlabel("Time")
+        plt.ylabel(y_label)
+        plt.title(title)
+
     return _plot
 
 
