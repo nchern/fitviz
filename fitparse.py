@@ -369,7 +369,8 @@ def plot_steps_history(args):
 
         # distance plot
         bar_plot(ax3, table[:, 0], table[:, 2], color="tab:blue", plot_label="Distance, km",
-                 x_label="Date", y_label="Kilometers")
+                 x_label="Date", y_label="Kilometers",
+                 average={"label": "Avg. km / day: %.2f"})
         ax3.xaxis.set_major_locator(mdates.DayLocator(interval=1))
         ax3.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d %a"))
         ax3.legend()
