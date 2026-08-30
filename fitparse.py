@@ -233,6 +233,8 @@ def plot_hourly_data_with_lines(
     x_label="Time",
     y_label="",
     y_locator=None,
+    average=None,
+    moving_average=None,
 ):
     try:
         if np.size(dates) < 1:
@@ -249,6 +251,16 @@ def plot_hourly_data_with_lines(
     if y_locator is not None:
         ax.yaxis.set_major_locator(y_locator)
     ax.tick_params(axis='x', rotation=45)
+    if moving_average:
+        period = 60
+        sma = np.convolve(values, np.ones(period) / period, mode="valid")
+        ax.plot(dates[period-1:], sma, color=moving_average.get("color", "green"),
+                linewidth=1, label=moving_average.get("label", "Moving average"))
+    if average:
+        avg = round(np.mean(values), 2)
+        ax.axhline(avg, color=average.get("color", "green"),
+                   linewidth=1, label=average["label"] % (avg))
+
     ax.legend()
 
     plt.xlabel(x_label)
@@ -431,7 +443,8 @@ def plot_pulse_history(args):
         plot_hourly_data_with_lines(table[:, 0], table[:, 1],
                                     label="Pulse",
                                     title="Heart rate over time",
-                                    y_label="Heart rate")
+                                    y_label="Heart rate",
+                                    moving_average={"color":"blue"})
     return _plot
 
 
@@ -506,7 +519,9 @@ def plot_stress_history(args):
                                     label="Stress level",
                                     title="Stress level over time",
                                     y_label="Stress level [0-100]",
-                                    y_locator=mticker.MultipleLocator(10))
+                                    y_locator=mticker.MultipleLocator(10),
+                                    average={"label": "Average stress: %.2f"},
+                                    moving_average={"color": "blue"})
     return _plot
 
 
