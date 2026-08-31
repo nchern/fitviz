@@ -225,6 +225,7 @@ def bar_plot(axes, dates, values,
 
 
 def plot_hourly_data_with_lines(
+    axes,
     dates,
     values,
     label="",
@@ -244,28 +245,27 @@ def plot_hourly_data_with_lines(
         if not dates or not values:
             return
 
-    plt.plot(dates, values, marker="o", color=color, label=label)
-    ax = plt.gca()
-    ax.xaxis.set_major_locator(mdates.HourLocator(interval=1))
-    ax.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d %H:%M"))
+    axes.plot(dates, values, marker="o", color=color, label=label)
+    axes.xaxis.set_major_locator(mdates.HourLocator(interval=1))
+    axes.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d %H:%M"))
     if y_locator is not None:
-        ax.yaxis.set_major_locator(y_locator)
-    ax.tick_params(axis='x', rotation=45)
+        axes.yaxis.set_major_locator(y_locator)
+    axes.tick_params(axis='x', rotation=45)
     if moving_average:
         period = 60
         sma = np.convolve(values, np.ones(period) / period, mode="valid")
-        ax.plot(dates[period-1:], sma, color=moving_average.get("color", "green"),
-                linewidth=1, label=moving_average.get("label", "Moving average"))
+        axes.plot(dates[period-1:], sma, color=moving_average.get("color", "green"),
+                  linewidth=1, label=moving_average.get("label", "Moving average"))
     if average:
         avg = round(np.mean(values), 2)
-        ax.axhline(avg, color=average.get("color", "green"),
-                   linewidth=1, label=average["label"] % (avg))
+        axes.axhline(avg, color=average.get("color", "green"),
+                     linewidth=1, label=average["label"] % (avg))
 
-    ax.legend()
+    axes.legend()
 
-    plt.xlabel(x_label)
-    plt.ylabel(y_label)
-    plt.title(title)
+    axes.set_xlabel(x_label)
+    axes.set_ylabel(y_label)
+    axes.set_title(title)
 
 
 @cli_command("csv", description="prints records in csv format")
@@ -397,7 +397,14 @@ def plot_pulse_history(args):
     rows = []
     last_ts = None
     last_ts_16 = None
+    activity_types = {
+        "sedentary": 0,
+        "generic": 1,
+        "walking": 2,
+        "running": 3,
+    }
 
+    activity_type = 1   # generic
     # HACK: since / until filters do not work in parse_files
     #   as we manually calculate timestamps below. Hence apply since / until filters
     #   manually here to the calculated timestamps.
@@ -410,6 +417,8 @@ def plot_pulse_history(args):
             # https://forums.garmin.com/developer/fit-sdk/f/discussion/311422/fit-timestamp_16-heart-rate---excel
             # The current hack is to take previous known full timestamp
             # and then track differences between subsequent timestamp_16
+            if msg.has_fields("activity_type"):
+                activity_type = activity_types.get(msg["activity_type"], 1)
             if msg.has_fields("timestamp"):
                 last_ts_16 = None
                 last_ts = int(msg.timestamp.timestamp())
@@ -433,21 +442,30 @@ def plot_pulse_history(args):
                 if until is not None and local_ts.date() > until.date():
                     continue
 
-                rows.append([local_ts, msg["heart_rate"]])
+                rows.append([local_ts, msg["heart_rate"], activity_type])
 
     rows = sorted(rows, key=lambda r: r[0])
     table = np.array(rows)
     print_table(table, dt_format=DATETIME_FORMAT)
 
     def _plot():
-        plot_hourly_data_with_lines(table[:, 0], table[:, 1],
+        fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=(10, 6))
+        # pulse plot
+        plot_hourly_data_with_lines(ax1, table[:, 0], table[:, 1],
                                     label="Pulse",
                                     title="Heart rate over time",
                                     y_label="Heart rate",
-                                    moving_average={"color":"blue"})
+                                    moving_average={"color": "blue"})
+        ax1.grid(True)
+        # activity plot
+        plot_hourly_data_with_lines(ax2, table[:, 0], table[:, 2],
+                                    label="Activity score",
+                                    title="Activity over time",
+                                    y_label="Score")
     return _plot
 
 
+# Sleep data is located in Smartwatch/Sleep/*
 @cli_command("sleep", description="visualises sleep history")
 def plot_sleep_history(args):
     # pylint: disable=R0914
@@ -515,7 +533,8 @@ def plot_stress_history(args):
     print_table(table, dt_format=DATETIME_FORMAT)
 
     def _plot():
-        plot_hourly_data_with_lines(table[:, 0], table[:, 1],
+        ax = plt.gca()
+        plot_hourly_data_with_lines(ax, table[:, 0], table[:, 1],
                                     label="Stress level",
                                     title="Stress level over time",
                                     y_label="Stress level [0-100]",
@@ -540,7 +559,8 @@ def plot_hrv_history(args):
     print_table(table, dt_format=DATETIME_FORMAT)
 
     def _plot():
-        plot_hourly_data_with_lines(table[:, 0], table[:, 1],
+        ax = plt.gca()
+        plot_hourly_data_with_lines(ax, table[:, 0], table[:, 1],
                                     label="Heart rate variation, ms",
                                     title="Heart rate variation level over time",
                                     y_label="Milliseconds",
