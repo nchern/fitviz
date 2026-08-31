@@ -252,9 +252,9 @@ def plot_hourly_data_with_lines(
         axes.yaxis.set_major_locator(y_locator)
     axes.tick_params(axis='x', rotation=45)
     if moving_average:
-        period = 60
-        sma = np.convolve(values, np.ones(period) / period, mode="valid")
-        axes.plot(dates[period-1:], sma, color=moving_average.get("color", "green"),
+        window = moving_average.get("window", 60)
+        sma = np.convolve(values, np.ones(window) / window, mode="valid")
+        axes.plot(dates[window-1:], sma, color=moving_average.get("color", "green"),
                   linewidth=1, label=moving_average.get("label", "Moving average"))
     if average:
         avg = round(np.mean(values), 2)
@@ -564,7 +564,10 @@ def plot_hrv_history(args):
                                     label="Heart rate variation, ms",
                                     title="Heart rate variation level over time",
                                     y_label="Milliseconds",
-                                    y_locator=mticker.MultipleLocator(10))
+                                    y_locator=mticker.MultipleLocator(10),
+                                    average={"label": "average: %.2fms"},
+                                    moving_average={"color": "blue",
+                                                    "label": "moving average, ms"})
     return _plot
 
 
