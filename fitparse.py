@@ -318,9 +318,8 @@ def calc_report_date(timestamp):
     return (timestamp + timedelta(minutes=offset_mins)).date() - timedelta(days=1)
 
 
-@cli_command("steps", description="visualises steps history")
-def plot_steps_history(args):
-    # pylint: disable=too-many-locals
+def fetch_steps(args):
+      # pylint: disable=too-many-locals
     def _map():
         for msg in parse_files(args):
             if msg.group_name == "monitoring_mesgs" and \
@@ -355,9 +354,12 @@ def plot_steps_history(args):
         return d
 
     ds = reduce(_combine, ds, {})
-    rows = [ds[k] for k in sorted(ds.keys())]
+    return [ds[k] for k in sorted(ds.keys())]
 
-    table = np.array(rows)
+
+@cli_command("steps", description="visualises steps history")
+def plot_steps_history(args):
+    table = np.array(fetch_steps(args))
     print_table(table)
 
     def _plot():
@@ -392,8 +394,7 @@ def plot_steps_history(args):
     return _plot
 
 
-@cli_command("pulse", description="visualises heart rate(pulse) history")
-def plot_pulse_history(args):
+def fetch_pulse(args):
     rows = []
     last_ts = None
     last_ts_16 = None
@@ -444,12 +445,16 @@ def plot_pulse_history(args):
 
                 rows.append([local_ts, msg["heart_rate"], activity_type])
 
-    rows = sorted(rows, key=lambda r: r[0])
-    table = np.array(rows)
+    return sorted(rows, key=lambda r: r[0])
+
+
+@cli_command("pulse", description="visualises heart rate(pulse) history")
+def plot_pulse_history(args):
+    table = np.array(fetch_pulse(args))
     print_table(table, dt_format=DATETIME_FORMAT)
 
     def _plot():
-        fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=(10, 6))
+        _, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=(10, 6))
         # pulse plot
         plot_hourly_data_with_lines(ax1, table[:, 0], table[:, 1],
                                     label="Pulse",
@@ -465,9 +470,7 @@ def plot_pulse_history(args):
     return _plot
 
 
-# Sleep data is located in Smartwatch/Sleep/*
-@cli_command("sleep", description="visualises sleep history")
-def plot_sleep_history(args):
+def fetch_sleep(args):
     # pylint: disable=R0914
     rows = []
     row = [0] * 3
@@ -490,9 +493,13 @@ def plot_sleep_history(args):
             # event_mesgs.event_type = stop
             if finished_at is not None and rows:
                 rows[-1][2] = msg["overall_sleep_score"]
+    return sorted(rows, key=lambda r: r[0])
 
-    rows = sorted(rows, key=lambda r: r[0])
-    table = np.array(rows)
+
+# Sleep data is located in Smartwatch/Sleep/*
+@cli_command("sleep", description="visualises sleep history")
+def plot_sleep_history(args):
+    table = np.array(fetch_sleep(args))
     print_table(table)
 
     def _plot():
@@ -517,8 +524,7 @@ def plot_sleep_history(args):
     return _plot
 
 
-@cli_command("stress", description="visualises stress history")
-def plot_stress_history(args):
+def fetch_stress(args):
     rows = []
     for msg in parse_files(args):
         if msg.group_name == "stress_level_mesgs":
@@ -528,8 +534,12 @@ def plot_stress_history(args):
                 continue
             rows.append([dt_val, val])
 
-    rows = sorted(rows, key=lambda r: r[0])
-    table = np.array(rows)
+    return sorted(rows, key=lambda r: r[0])
+
+
+@cli_command("stress", description="visualises stress history")
+def plot_stress_history(args):
+    table = np.array(fetch_stress(args))
     print_table(table, dt_format=DATETIME_FORMAT)
 
     def _plot():
