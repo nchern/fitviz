@@ -240,8 +240,7 @@ def plot_hourly_data_with_lines(
     try:
         if np.size(dates) < 1:
             return
-        # pylint: disable=bare-except
-    except:
+    except Exception:  # pylint: disable=broad-exception-caught
         if not dates or not values:
             return
 
@@ -319,7 +318,7 @@ def calc_report_date(timestamp):
 
 
 def fetch_steps(args):
-      # pylint: disable=too-many-locals
+    # pylint: disable=too-many-locals
     def _map():
         for msg in parse_files(args):
             if msg.group_name == "monitoring_mesgs" and \
