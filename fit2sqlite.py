@@ -2,6 +2,7 @@
 
 import argparse
 import sqlite3
+import sys
 
 from argparse import Namespace
 from pathlib import Path
@@ -64,14 +65,20 @@ ON CONFLICT(time, resolution) DO UPDATE SET
 
 def _parse_args():
     parser = argparse.ArgumentParser(description="Import Garmin FIT data into SQLite")
+    parser.add_argument("-b", "--batch", action="store_true",
+                        help="Batch mode - read FIT file names from stdin")
     parser.add_argument("--db-path", default="~/fit.db", help="Path to SQLite database")
-    parser.add_argument("file_names", nargs="+", help="FIT files to import")
+    parser.add_argument("file_names", nargs="*", help="FIT files to import")
     return parser.parse_args()
 
 
-def _fitparse_args(args):
+def _make_fit_args(args):
+    file_names = args.file_names
+    if args.batch:
+        file_names = [name.strip() for name in sys.stdin if name.strip()]
+
     return Namespace(
-        file_names=args.file_names,
+        file_names=file_names,
         batch=False,
         since=None,
         until=None,
@@ -123,7 +130,7 @@ def main():
     db_path = Path(args.db_path).expanduser()
     db_path.parent.mkdir(parents=True, exist_ok=True)
 
-    fit_args = _fitparse_args(args)
+    fit_args = _make_fit_args(args)
     with sqlite3.connect(db_path) as conn:
         conn.execute(SCHEMA)
         counts = {
