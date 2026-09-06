@@ -540,7 +540,10 @@ def plot_stress_history(args):
                                     y_label="Stress level [0-100]",
                                     y_locator=mticker.MultipleLocator(10),
                                     average={"label": "Average stress: %.2f"},
-                                    moving_average={"color": "blue"})
+                                    moving_average={
+                                        "color": "blue",
+                                        "window": 1440,
+                                    })
     return _plot
 
 
