@@ -8,6 +8,11 @@ lint:
 	@pylint $(LINT_FILES)
 	@flake8 $(LINT_FILES)
 
+.PHONY: test
+test: lint
+	@./tests/all_test.sh
+	@./tests/fit2sqlite.sh
+
 .PHONY: sync
 sync:
 	@$(TOOLS_DIR)/sync.sh
