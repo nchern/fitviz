@@ -68,6 +68,7 @@ def _parse_args():
     parser = argparse.ArgumentParser(description="Import Garmin FIT data into SQLite")
     parser.add_argument("-b", "--batch", action="store_true",
                         help="Batch mode - read FIT file names from stdin")
+    parser.add_argument("--schema", action='store_true', required=False, help="Print schema")
     parser.add_argument("--db-path", default="~/fit.db", help="Path to SQLite database")
     parser.add_argument("file_names", nargs="*", help="FIT files to import")
     return parser.parse_args()
@@ -128,6 +129,11 @@ def _import_stress(conn, args):
 
 def main():
     args = _parse_args()
+
+    if args.schema:
+        print(SCHEMA)
+        return
+
     db_path = Path(args.db_path).expanduser()
     db_path.parent.mkdir(parents=True, exist_ok=True)
 
