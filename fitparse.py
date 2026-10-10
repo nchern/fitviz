@@ -470,28 +470,48 @@ def plot_pulse_history(args):
 
 
 def fetch_sleep(args):
-    # pylint: disable=R0914
+    # pylint: disable=R0912,R0914
     rows = []
-    row = [0] * 3
+    row = [0] * 7
     started_at, finished_at = None, None
+    sleep_level_started_at = None
+    sleep_level_indexes = {
+        "deep": 3,
+        "light": 4,
+        "rem": 5,
+        "awake": 6,
+    }
     for msg in parse_files(args):
         if msg.group_name == "event_mesgs":
             if msg.fields.get("event_type") == "start":
                 started_at = msg.timestamp
+                sleep_level_started_at = started_at
             elif msg.fields.get("event_type") == "stop":
                 if started_at is None:
                     continue
                 finished_at = msg.timestamp
-                duration = round((finished_at - started_at).seconds / 3600., 2)
+                duration = round((finished_at - started_at).total_seconds() / 3600., 2)
                 row[0], row[1] = finished_at.date(), duration
                 rows.append(row)
-                row = [0] * 3
+                row = [0] * 7
         elif msg.group_name == "sleep_assessment_mesgs":
             # XXX: sleep_assessment_mesgs has no timestamp
             # Relying on the fact that it goes right after
             # event_mesgs.event_type = stop
             if finished_at is not None and rows:
                 rows[-1][2] = msg["overall_sleep_score"]
+        elif msg.group_name == "sleep_level_mesgs":
+            if sleep_level_started_at is None or finished_at is None or not rows:
+                continue
+            if msg.timestamp <= sleep_level_started_at or msg.timestamp > finished_at:
+                continue
+
+            # Each message describes the interval ending at its timestamp.
+            level_index = sleep_level_indexes.get(msg.fields.get("sleep_level"))
+            if level_index is not None:
+                duration = (msg.timestamp - sleep_level_started_at).total_seconds() / 3600.
+                rows[-1][level_index] = round(rows[-1][level_index] + duration, 2)
+            sleep_level_started_at = msg.timestamp
     return sorted(rows, key=lambda r: r[0])
 
 
