@@ -10,22 +10,7 @@ from pathlib import Path
 from fitparse import fetch_pulse, fetch_sleep, fetch_steps, fetch_stress
 
 
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS point (
-    time            TEXT NOT NULL,
-    resolution      TEXT NOT NULL CHECK (resolution IN ('day', 'minute')),
-    steps           INTEGER,
-    distance_km     REAL,
-    active_calories INTEGER,
-    pulse           INTEGER,
-    activity_type   INTEGER,
-    sleep_hours     REAL,
-    sleep_score     INTEGER,
-    stress          INTEGER,
-
-    PRIMARY KEY (time, resolution)
-);
-"""
+MIGRATIONS_DIR = Path(__file__).resolve().parent / "db"
 
 
 UPSERT_STEPS = """
@@ -48,11 +33,24 @@ ON CONFLICT(time, resolution) DO UPDATE SET
 
 
 UPSERT_SLEEP = """
-INSERT INTO point (time, resolution, sleep_hours, sleep_score)
-VALUES (?, 'day', ?, ?)
+INSERT INTO point (
+    time,
+    resolution,
+    sleep_hours,
+    sleep_score,
+    sleep_deep_hours,
+    sleep_light_hours,
+    sleep_rem_hours,
+    sleep_awake_hours
+)
+VALUES (?, 'day', ?, ?, ?, ?, ?, ?)
 ON CONFLICT(time, resolution) DO UPDATE SET
     sleep_hours = excluded.sleep_hours,
-    sleep_score = excluded.sleep_score;
+    sleep_score = excluded.sleep_score,
+    sleep_deep_hours = excluded.sleep_deep_hours,
+    sleep_light_hours = excluded.sleep_light_hours,
+    sleep_rem_hours = excluded.sleep_rem_hours,
+    sleep_awake_hours = excluded.sleep_awake_hours;
 """
 
 
@@ -87,6 +85,58 @@ def _make_fit_args(args):
     )
 
 
+def _migration_files():
+    migrations = []
+    for path in sorted(MIGRATIONS_DIR.glob("*.sql")):
+        prefix, separator, name = path.name.partition("_")
+        if not separator or len(prefix) != 3 or not prefix.isdigit() or not name:
+            raise ValueError(f"invalid migration file name: {path.name}")
+        migrations.append((int(prefix), path))
+
+    for expected_version, (version, _) in enumerate(migrations, start=1):
+        if version != expected_version:
+            raise ValueError(
+                f"expected migration {expected_version:03d}, found {version:03d}"
+            )
+    return migrations
+
+
+def _migration_script(version, path):
+    sql = path.read_text(encoding="utf-8")
+    return (
+        "BEGIN IMMEDIATE;\n"
+        f"{sql}\n"
+        f"PRAGMA user_version = {version};\n"
+        "COMMIT;"
+    )
+
+
+def _apply_migrations(conn):
+    migrations = _migration_files()
+    current_version = conn.execute("PRAGMA user_version").fetchone()[0]
+    latest_version = migrations[-1][0] if migrations else 0
+    if current_version > latest_version:
+        raise ValueError(
+            f"database version {current_version} is newer than {latest_version}"
+        )
+
+    for version, path in migrations:
+        if version <= current_version:
+            continue
+        try:
+            conn.executescript(_migration_script(version, path))
+        except sqlite3.Error:
+            if conn.in_transaction:
+                conn.rollback()
+            raise
+        current_version = version
+
+
+def _print_schema():
+    for version, path in _migration_files():
+        print(_migration_script(version, path))
+
+
 def _format_time(val, fmt):
     return val.strftime(fmt)
 
@@ -111,8 +161,17 @@ def _import_pulse(conn, args):
 
 def _import_sleep(conn, args):
     rows = [
-        (_format_time(dt, "%Y-%m-%d"), sleep_hours, sleep_score)
-        for dt, sleep_hours, sleep_score in fetch_sleep(args)
+        (
+            _format_time(dt, "%Y-%m-%d"),
+            sleep_hours,
+            sleep_score,
+            deep_hours,
+            light_hours,
+            rem_hours,
+            awake_hours,
+        )
+        for (dt, sleep_hours, sleep_score, deep_hours,
+             light_hours, rem_hours, awake_hours) in fetch_sleep(args)
     ]
     conn.executemany(UPSERT_SLEEP, rows)
     return len(rows)
@@ -131,7 +190,7 @@ def main():
     args = _parse_args()
 
     if args.schema:
-        print(SCHEMA)
+        _print_schema()
         return
 
     db_path = Path(args.db_path).expanduser()
@@ -139,7 +198,7 @@ def main():
 
     fit_args = _make_fit_args(args)
     with sqlite3.connect(db_path) as conn:
-        conn.execute(SCHEMA)
+        _apply_migrations(conn)
         counts = {
             "steps": _import_steps(conn, fit_args),
             "pulse": _import_pulse(conn, fit_args),
