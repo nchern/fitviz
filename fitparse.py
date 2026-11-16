@@ -454,6 +454,8 @@ def plot_pulse_history(args):
 
     def _plot():
         _, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=(10, 6))
+        ax1.set_ylim(0)
+        ax1.autoscale(axis='y')
         # pulse plot
         plot_hourly_data_with_lines(ax1, table[:, 0], table[:, 1],
                                     label="Pulse",
