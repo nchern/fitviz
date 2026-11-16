@@ -22,3 +22,7 @@ steps:
 	# <Garmin>/Monitor/*: Forerunner saves steps state in the files there
 	# Normally once a day, however there are intermediate states
 	@./fitparse.py -c steps -p $(DATA_DIR)/Monitor/*
+
+.PHONY: sync-db
+sync-db:
+	./tools/db_files_to_update.sh | ./fit2sqlite.py -b
